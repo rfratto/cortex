@@ -7,22 +7,26 @@ import (
 
 // GenerateTokens make numTokens unique random tokens, none of which clash
 // with takenTokens.
-func GenerateTokens(numTokens int, takenTokens []uint32) []uint32 {
+func GenerateTokens(numTokens int, takenTokens []StatefulToken, state State) []StatefulToken {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	used := make(map[uint32]bool)
 	for _, v := range takenTokens {
-		used[v] = true
+		used[v.Token] = true
 	}
 
-	tokens := []uint32{}
+	tokens := []StatefulToken{}
+
 	for i := 0; i < numTokens; {
 		candidate := r.Uint32()
 		if used[candidate] {
 			continue
 		}
 		used[candidate] = true
-		tokens = append(tokens, candidate)
+		tokens = append(tokens, StatefulToken{
+			Token: candidate,
+			State: state,
+		})
 		i++
 	}
 	return tokens

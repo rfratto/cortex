@@ -75,15 +75,26 @@ func TestReplicationStrategy(t *testing.T) {
 			ExpectedError: "at least 3 live ingesters required, could only find 2",
 		},
 	} {
-		ingesters := []IngesterDesc{}
+		tokens := []TokenDesc{}
 		for i := 0; i < tc.LiveIngesters; i++ {
-			ingesters = append(ingesters, IngesterDesc{
-				Timestamp: time.Now().Unix(),
+			tokens = append(tokens, TokenDesc{
+				Ingester: "live",
 			})
 		}
 		for i := 0; i < tc.DeadIngesters; i++ {
-			ingesters = append(ingesters, IngesterDesc{})
+			tokens = append(tokens, TokenDesc{
+				Ingester: "dead",
+			})
 		}
+
+		d := &Desc{
+			Ingesters: map[string]IngesterDesc{
+				"live": IngesterDesc{Timestamp: time.Now().Unix()},
+				"dead": IngesterDesc{},
+			},
+			Tokens: tokens,
+		}
+
 		r, err := New(Config{
 			KVStore: kv.Config{
 				Mock: consul.NewInMemoryClient(GetCodec()),
@@ -91,10 +102,11 @@ func TestReplicationStrategy(t *testing.T) {
 			HeartbeatTimeout:  100 * time.Second,
 			ReplicationFactor: tc.RF,
 		}, "ingester")
+		r.ringDesc = d
 		require.NoError(t, err)
 
 		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
-			liveIngesters, maxFailure, err := r.replicationStrategy(ingesters, tc.op)
+			liveIngesters, maxFailure, err := r.replicationStrategy(tokens, tc.op)
 			if tc.ExpectedError == "" {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.LiveIngesters, len(liveIngesters))

@@ -11,6 +11,19 @@ import (
 	"github.com/cortexproject/cortex/pkg/ring/kv/memberlist"
 )
 
+// StatefulToken is a token with a state.
+type StatefulToken struct {
+	Token uint32
+	State State
+}
+
+// ByStatefulTokens is a sortable list of StatefulToken
+type ByStatefulTokens []StatefulToken
+
+func (ts ByStatefulTokens) Len() int           { return len(ts) }
+func (ts ByStatefulTokens) Swap(i, j int)      { ts[i], ts[j] = ts[j], ts[i] }
+func (ts ByStatefulTokens) Less(i, j int) bool { return ts[i].Token < ts[j].Token }
+
 // ByToken is a sortable list of TokenDescs
 type ByToken []TokenDesc
 
@@ -36,24 +49,34 @@ func NewDesc() *Desc {
 }
 
 // AddIngester adds the given ingester to the ring.
-func (d *Desc) AddIngester(id, addr string, tokens []uint32, state IngesterState, normaliseTokens bool) {
+func (d *Desc) AddIngester(id, addr string, tokens []StatefulToken, state State, normaliseTokens bool) {
 	if d.Ingesters == nil {
 		d.Ingesters = map[string]IngesterDesc{}
 	}
 
 	ingester := IngesterDesc{
-		Addr:      addr,
-		Timestamp: time.Now().Unix(),
-		State:     state,
+		Addr:           addr,
+		Timestamp:      time.Now().Unix(),
+		State:          state,
+		StatefulTokens: true,
 	}
 
 	if normaliseTokens {
-		ingester.Tokens = tokens
+		ingester.Tokens = make([]uint32, len(tokens))
+		ingester.InactiveTokens = make(map[uint32]State)
+
+		for i, tok := range tokens {
+			ingester.Tokens[i] = tok.Token
+			if tok.State != ACTIVE {
+				ingester.InactiveTokens[tok.Token] = tok.State
+			}
+		}
 	} else {
-		for _, token := range tokens {
+		for _, pair := range tokens {
 			d.Tokens = append(d.Tokens, TokenDesc{
-				Token:    token,
+				Token:    pair.Token,
 				Ingester: id,
+				State:    pair.State,
 			})
 		}
 		sort.Sort(ByToken(d.Tokens))
@@ -79,14 +102,25 @@ func (d *Desc) RemoveIngester(id string) {
 // This method assumes that Ring is in the correct state, 'from' ingester has no tokens anywhere,
 // and 'to' ingester uses either normalised or non-normalised tokens, but not both. Tokens list must
 // be sorted properly. If all of this is true, everything will be fine.
-func (d *Desc) ClaimTokens(from, to string, normaliseTokens bool) []uint32 {
-	var result []uint32
+func (d *Desc) ClaimTokens(from, to string, normaliseTokens bool) []StatefulToken {
+	var result []StatefulToken
 
 	if normaliseTokens {
-
 		// If the ingester we are claiming from is normalising, get its tokens then erase them from the ring.
 		if fromDesc, found := d.Ingesters[from]; found {
-			result = fromDesc.Tokens
+			for _, tok := range fromDesc.Tokens {
+				stok := StatefulToken{
+					Token: tok,
+					State: ACTIVE,
+				}
+
+				if s, ok := fromDesc.InactiveTokens[tok]; ok {
+					stok.State = s
+				}
+
+				result = append(result, stok)
+			}
+
 			fromDesc.Tokens = nil
 			d.Ingesters[from] = fromDesc
 		}
@@ -97,26 +131,51 @@ func (d *Desc) ClaimTokens(from, to string, normaliseTokens bool) []uint32 {
 		// When all ingesters are in normalised mode, d.Tokens is empty here
 		for i := 0; i < len(d.Tokens); {
 			if d.Tokens[i].Ingester == from {
-				result = append(result, d.Tokens[i].Token)
+				result = append(result, StatefulToken{
+					Token: d.Tokens[i].Token,
+					State: d.Tokens[i].State,
+				})
+
 				d.Tokens = append(d.Tokens[:i], d.Tokens[i+1:]...)
 				continue
 			}
 			i++
 		}
 
+		sort.Sort(ByStatefulTokens(result))
 		ing := d.Ingesters[to]
-		ing.Tokens = result
-		d.Ingesters[to] = ing
 
+		ing.Tokens = make([]uint32, len(result))
+
+		for i, tok := range result {
+			ing.Tokens[i] = tok.Token
+
+			if tok.State != ACTIVE {
+				if ing.InactiveTokens == nil {
+					ing.InactiveTokens = make(map[uint32]State)
+				}
+
+				ing.InactiveTokens[tok.Token] = tok.State
+			}
+		}
+
+		d.Ingesters[to] = ing
 	} else {
 		// If source ingester is normalising, copy its tokens to d.Tokens, and set new owner
 		if fromDesc, found := d.Ingesters[from]; found {
-			result = fromDesc.Tokens
+			for _, t := range fromDesc.Tokens {
+				st := StatefulToken{Token: t, State: ACTIVE}
+				if s, ok := fromDesc.InactiveTokens[t]; ok {
+					st.State = s
+				}
+				result = append(result, st)
+			}
+
 			fromDesc.Tokens = nil
 			d.Ingesters[from] = fromDesc
 
 			for _, t := range result {
-				d.Tokens = append(d.Tokens, TokenDesc{Ingester: to, Token: t})
+				d.Tokens = append(d.Tokens, TokenDesc{Ingester: to, Token: t.Token, State: t.State})
 			}
 
 			sort.Sort(ByToken(d.Tokens))
@@ -126,7 +185,10 @@ func (d *Desc) ClaimTokens(from, to string, normaliseTokens bool) []uint32 {
 		for i := 0; i < len(d.Tokens); i++ {
 			if d.Tokens[i].Ingester == from {
 				d.Tokens[i].Ingester = to
-				result = append(result, d.Tokens[i].Token)
+				result = append(result, StatefulToken{
+					Token: d.Tokens[i].Token,
+					State: d.Tokens[i].State,
+				})
 			}
 		}
 	}
@@ -139,8 +201,19 @@ func (d *Desc) ClaimTokens(from, to string, normaliseTokens bool) []uint32 {
 	return result
 }
 
+// FindTokensByState returns the list of tokens in the given state
+func (d *Desc) FindTokensByState(state State) []TokenDesc {
+	var result []TokenDesc
+	for _, token := range migrateRing(d) {
+		if token.State == state {
+			result = append(result, token)
+		}
+	}
+	return result
+}
+
 // FindIngestersByState returns the list of ingesters in the given state
-func (d *Desc) FindIngestersByState(state IngesterState) []IngesterDesc {
+func (d *Desc) FindIngestersByState(state State) []IngesterDesc {
 	var result []IngesterDesc
 	for _, ing := range d.Ingesters {
 		if ing.State == state {
@@ -168,26 +241,87 @@ func (d *Desc) Ready(now time.Time, heartbeatTimeout time.Duration) error {
 	return nil
 }
 
-// TokensFor partitions the tokens into those for the given ID, and those for others.
-func (d *Desc) TokensFor(id string) (tokens, other []uint32) {
-	var takenTokens, myTokens []uint32
-	for _, token := range migrateRing(d) {
-		takenTokens = append(takenTokens, token.Token)
-		if token.Ingester == id {
-			myTokens = append(myTokens, token.Token)
+// RefreshTokenState updates the tokens in the ring with the state from the
+// provided tokens.
+func (d *Desc) RefreshTokenState(id string, tokens []StatefulToken, normalise bool) {
+	if d.Ingesters == nil {
+		d.Ingesters = make(map[string]IngesterDesc)
+	}
+
+	ing, ok := d.Ingesters[id]
+	if !ok {
+		return
+	}
+
+	if normalise {
+		ing.Tokens = make([]uint32, len(tokens))
+		ing.InactiveTokens = make(map[uint32]State)
+
+		for i, tok := range tokens {
+			ing.Tokens[i] = tok.Token
+
+			if tok.State != ACTIVE {
+				ing.InactiveTokens[tok.Token] = tok.State
+			}
+		}
+
+		d.Ingesters[id] = ing
+	} else {
+		statesMap := make(map[uint32]State, len(tokens))
+		for _, tok := range tokens {
+			statesMap[tok.Token] = tok.State
+		}
+
+		for i, tok := range d.Tokens {
+			if tok.Ingester != id {
+				continue
+			}
+
+			state, ok := statesMap[tok.Token]
+			if !ok {
+				continue
+			}
+			d.Tokens[i].State = state
 		}
 	}
+}
+
+// TokensFor partitions the tokens into those for the given ID, and those for others.
+func (d *Desc) TokensFor(id string) (tokens, other []StatefulToken) {
+	var takenTokens, myTokens []StatefulToken
+
+	for _, token := range migrateRing(d) {
+		stok := StatefulToken{
+			Token: token.Token,
+			State: token.State,
+		}
+
+		takenTokens = append(takenTokens, stok)
+		if token.Ingester == id {
+			myTokens = append(myTokens, stok)
+		}
+	}
+
 	return myTokens, takenTokens
+}
+
+// IsHealthyState checks whether an state is in a valid state and whether an
+// ingester is heartbeating.
+//
+// IsHealthyState is used for validating a token state. For validating the
+// overall ingester state, use IsHealthy.
+func (i *IngesterDesc) IsHealthyState(op Operation, state State, heartbeatTimeout time.Duration) bool {
+	if op == Write && state != ACTIVE {
+		return false
+	} else if op == Read && state == JOINING {
+		return false
+	}
+	return time.Now().Sub(time.Unix(i.Timestamp, 0)) <= heartbeatTimeout
 }
 
 // IsHealthy checks whether the ingester appears to be alive and heartbeating
 func (i *IngesterDesc) IsHealthy(op Operation, heartbeatTimeout time.Duration) bool {
-	if op == Write && i.State != ACTIVE {
-		return false
-	} else if op == Read && i.State == JOINING {
-		return false
-	}
-	return time.Now().Sub(time.Unix(i.Timestamp, 0)) <= heartbeatTimeout
+	return i.IsHealthyState(op, i.State, heartbeatTimeout)
 }
 
 // Merge merges other ring into this one. Returns sub-ring that represents the change,

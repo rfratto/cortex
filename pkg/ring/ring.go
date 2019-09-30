@@ -32,9 +32,10 @@ type ReadRing interface {
 	prometheus.Collector
 
 	// Get returns n (or more) ingesters which form the replicas for the given key.
-	// buf is a slice to be overwritten for the return value
-	// to avoid memory allocation; can be nil.
-	Get(key uint32, op Operation, buf []IngesterDesc) (ReplicationSet, error)
+	// ingeters and tokens are slices to be overwritten for the return value
+	// to avoid memory allocations; can be nil.
+	Get(key uint32, op Operation, ingesters []IngesterDesc,
+		tokens []TokenDesc) (ReplicationSet, error)
 	GetAll() (ReplicationSet, error)
 	ReplicationFactor() int
 	IngesterCount() int
@@ -181,27 +182,49 @@ func migrateRing(desc *Desc) []TokenDesc {
 	copy(tokens, desc.Tokens)
 	for key, ing := range desc.Ingesters {
 		for _, token := range ing.Tokens {
-			tokens = append(tokens, TokenDesc{
+			td := TokenDesc{
 				Token:    token,
 				Ingester: key,
-			})
+				State:    ACTIVE,
+			}
+
+			if s, ok := ing.InactiveTokens[token]; ok {
+				td.State = s
+			}
+
+			tokens = append(tokens, td)
 		}
 	}
+
+	// Backwards compatibility: if the ingester doesn't use
+	// stateful tokens, force token state to ingester state.
+	for i, tok := range tokens {
+		ing := desc.Ingesters[tok.Ingester]
+		if !ing.StatefulTokens {
+			tokens[i].State = ing.State
+		}
+	}
+
 	sort.Sort(ByToken(tokens))
 	return tokens
 }
 
 // Get returns n (or more) ingesters which form the replicas for the given key.
-func (r *Ring) Get(key uint32, op Operation, buf []IngesterDesc) (ReplicationSet, error) {
+func (r *Ring) Get(key uint32, op Operation, ingesters []IngesterDesc,
+	tokens []TokenDesc) (ReplicationSet, error) {
+
 	r.mtx.RLock()
 	defer r.mtx.RUnlock()
 	if r.ringDesc == nil || len(r.ringDesc.Tokens) == 0 {
 		return ReplicationSet{}, ErrEmptyRing
 	}
 
+	// Reset buffers
+	ingesters = ingesters[:0]
+	tokens = tokens[:0]
+
 	var (
 		n             = r.cfg.ReplicationFactor
-		ingesters     = buf[:0]
 		distinctHosts = map[string]struct{}{}
 		start         = r.search(key)
 		iterations    = 0
@@ -217,26 +240,31 @@ func (r *Ring) Get(key uint32, op Operation, buf []IngesterDesc) (ReplicationSet
 			continue
 		}
 		distinctHosts[token.Ingester] = struct{}{}
-		ingester := r.ringDesc.Ingesters[token.Ingester]
 
-		// We do not want to Write to Ingesters that are not ACTIVE, but we do want
-		// to write the extra replica somewhere.  So we increase the size of the set
-		// of replicas for the key. This means we have to also increase the
-		// size of the replica set for read, but we can read from Leaving ingesters,
-		// so don't skip it in this case.
+		// We do not want to Write to Ingesters that are not ACTIVE, but
+		// we do want to write the extra replica somewhere.  So we increase the
+		// size of the set of replicas for the key. This means we have to also
+		// increase the size of the replica set for read, but we can read from
+		// Leaving ingesters, so don't skip it in this case.
 		// NB dead ingester will be filtered later (by replication_strategy.go).
-		if op == Write && ingester.State != ACTIVE {
+		if op == Write && token.State != ACTIVE {
 			n++
-		} else if op == Read && (ingester.State != ACTIVE && ingester.State != LEAVING) {
+		} else if op == Read && (token.State != ACTIVE && token.State != LEAVING) {
 			n++
 		}
 
-		ingesters = append(ingesters, ingester)
+		tokens = append(tokens, token)
 	}
 
-	liveIngesters, maxFailure, err := r.replicationStrategy(ingesters, op)
+	liveTokens, maxFailure, err := r.replicationStrategy(tokens, op)
 	if err != nil {
 		return ReplicationSet{}, err
+	}
+
+	liveIngesters := ingesters[:0]
+	for _, tok := range liveTokens {
+		ing := r.ringDesc.Ingesters[tok.Ingester]
+		liveIngesters = append(liveIngesters, ing)
 	}
 
 	return ReplicationSet{

@@ -124,8 +124,8 @@ type Lifecycler struct {
 	// We need to remember the ingester state just in case consul goes away and comes
 	// back empty.  And it changes during lifecycle of ingester.
 	stateMtx sync.Mutex
-	state    IngesterState
-	tokens   []uint32
+	state    State
+	tokens   []StatefulToken
 
 	// Controls the ready-reporting
 	readyLock sync.Mutex
@@ -225,20 +225,28 @@ func (i *Lifecycler) CheckReady(ctx context.Context) error {
 }
 
 // GetState returns the state of this ingester.
-func (i *Lifecycler) GetState() IngesterState {
+func (i *Lifecycler) GetState() State {
 	i.stateMtx.Lock()
 	defer i.stateMtx.Unlock()
 	return i.state
 }
 
-func (i *Lifecycler) setState(state IngesterState) {
+func (i *Lifecycler) setState(state State) {
 	i.stateMtx.Lock()
 	defer i.stateMtx.Unlock()
 	i.state = state
 }
 
+func (i *Lifecycler) setTokensState(state State) {
+	i.stateMtx.Lock()
+	defer i.stateMtx.Unlock()
+	for n := range i.tokens {
+		i.tokens[n].State = state
+	}
+}
+
 // ChangeState of the ingester, for use off of the loop() goroutine.
-func (i *Lifecycler) ChangeState(ctx context.Context, state IngesterState) error {
+func (i *Lifecycler) ChangeState(ctx context.Context, state State) error {
 	err := make(chan error)
 	i.actorChan <- func() {
 		err <- i.changeState(ctx, state)
@@ -246,13 +254,13 @@ func (i *Lifecycler) ChangeState(ctx context.Context, state IngesterState) error
 	return <-err
 }
 
-func (i *Lifecycler) getTokens() []uint32 {
+func (i *Lifecycler) getTokens() []StatefulToken {
 	i.stateMtx.Lock()
 	defer i.stateMtx.Unlock()
 	return i.tokens
 }
 
-func (i *Lifecycler) setTokens(tokens []uint32) {
+func (i *Lifecycler) setTokens(tokens []StatefulToken) {
 	tokensOwned.WithLabelValues(i.RingName).Set(float64(len(tokens)))
 
 	i.stateMtx.Lock()
@@ -270,7 +278,7 @@ func (i *Lifecycler) ClaimTokensFor(ctx context.Context, ingesterID string) erro
 	err := make(chan error)
 
 	i.actorChan <- func() {
-		var tokens []uint32
+		var tokens []StatefulToken
 
 		claimTokens := func(in interface{}) (out interface{}, retry bool, err error) {
 			ringDesc, ok := in.(*Desc)
@@ -279,10 +287,17 @@ func (i *Lifecycler) ClaimTokensFor(ctx context.Context, ingesterID string) erro
 			}
 
 			tokens = ringDesc.ClaimTokens(ingesterID, i.ID, i.cfg.NormaliseTokens)
-			// update timestamp to give gossiping client a chance register ring change.
+			// update timestamp to give gossiping client a chance to register ring change.
 			ing := ringDesc.Ingesters[i.ID]
 			ing.Timestamp = time.Now().Unix()
 			ringDesc.Ingesters[i.ID] = ing
+
+			// Set the state of the tokens to our ingester's state.
+			state := i.GetState()
+			for n := range tokens {
+				tokens[n].State = state
+			}
+
 			return ringDesc, true, nil
 		}
 
@@ -458,7 +473,7 @@ func (i *Lifecycler) initRing(ctx context.Context) error {
 		if !ok {
 			// Either we are a new ingester, or consul must have restarted
 			level.Info(util.Logger).Log("msg", "entry not found in ring, adding with no tokens")
-			ringDesc.AddIngester(i.ID, i.Addr, []uint32{}, i.GetState(), i.cfg.NormaliseTokens)
+			ringDesc.AddIngester(i.ID, i.Addr, nil, i.GetState(), i.cfg.NormaliseTokens)
 			return ringDesc, true, nil
 		}
 
@@ -502,10 +517,10 @@ func (i *Lifecycler) verifyTokens(ctx context.Context) bool {
 			needTokens := i.cfg.NumTokens - len(ringTokens)
 
 			level.Info(util.Logger).Log("msg", "generating new tokens", "count", needTokens)
-			newTokens := GenerateTokens(needTokens, takenTokens)
+			newTokens := GenerateTokens(needTokens, takenTokens, i.GetState())
 
 			ringTokens = append(ringTokens, newTokens...)
-			sort.Sort(sortableUint32(ringTokens))
+			sort.Sort(ByStatefulTokens(ringTokens))
 
 			ringDesc.AddIngester(i.ID, i.Addr, ringTokens, i.GetState(), i.cfg.NormaliseTokens)
 
@@ -527,11 +542,11 @@ func (i *Lifecycler) verifyTokens(ctx context.Context) bool {
 	return result
 }
 
-func (i *Lifecycler) compareTokens(fromRing []uint32) bool {
-	sort.Sort(sortableUint32(fromRing))
+func (i *Lifecycler) compareTokens(fromRing []StatefulToken) bool {
+	sort.Sort(ByStatefulTokens(fromRing))
 
 	tokens := i.getTokens()
-	sort.Sort(sortableUint32(tokens))
+	sort.Sort(ByStatefulTokens(tokens))
 
 	if len(tokens) != len(fromRing) {
 		return false
@@ -546,7 +561,7 @@ func (i *Lifecycler) compareTokens(fromRing []uint32) bool {
 }
 
 // autoJoin selects random tokens & moves state to targetState
-func (i *Lifecycler) autoJoin(ctx context.Context, targetState IngesterState) error {
+func (i *Lifecycler) autoJoin(ctx context.Context, targetState State) error {
 	var ringDesc *Desc
 
 	err := i.KVStore.CAS(ctx, ConsulKey, func(in interface{}) (out interface{}, retry bool, err error) {
@@ -562,12 +577,12 @@ func (i *Lifecycler) autoJoin(ctx context.Context, targetState IngesterState) er
 			level.Error(util.Logger).Log("msg", "tokens already exist for this ingester - wasn't expecting any!", "num_tokens", len(myTokens))
 		}
 
-		newTokens := GenerateTokens(i.cfg.NumTokens-len(myTokens), takenTokens)
+		newTokens := GenerateTokens(i.cfg.NumTokens-len(myTokens), takenTokens, targetState)
 		i.setState(targetState)
 		ringDesc.AddIngester(i.ID, i.Addr, newTokens, i.GetState(), i.cfg.NormaliseTokens)
 
 		tokens := append(myTokens, newTokens...)
-		sort.Sort(sortableUint32(tokens))
+		sort.Sort(ByStatefulTokens(tokens))
 		i.setTokens(tokens)
 
 		return ringDesc, true, nil
@@ -605,6 +620,8 @@ func (i *Lifecycler) updateConsul(ctx context.Context) error {
 			ringDesc.Ingesters[i.ID] = ingesterDesc
 		}
 
+		// Re-sync token states for the current lifecycler if they've changed.
+		ringDesc.RefreshTokenState(i.ID, i.tokens, i.cfg.NormaliseTokens)
 		return ringDesc, true, nil
 	})
 
@@ -618,7 +635,7 @@ func (i *Lifecycler) updateConsul(ctx context.Context) error {
 
 // changeState updates consul with state transitions for us.  NB this must be
 // called from loop()!  Use ChangeState for calls from outside of loop().
-func (i *Lifecycler) changeState(ctx context.Context, state IngesterState) error {
+func (i *Lifecycler) changeState(ctx context.Context, state State) error {
 	currState := i.GetState()
 	// Only the following state transitions can be triggered externally
 	if !((currState == PENDING && state == JOINING) || // triggered by TransferChunks at the beginning
@@ -631,6 +648,7 @@ func (i *Lifecycler) changeState(ctx context.Context, state IngesterState) error
 
 	level.Info(util.Logger).Log("msg", "changing ingester state from", "old_state", currState, "new_state", state)
 	i.setState(state)
+	i.setTokensState(state)
 	return i.updateConsul(ctx)
 }
 
