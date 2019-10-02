@@ -105,7 +105,7 @@ The ingester query API was improved over time, but defaults to the old behaviour
 - `distributor.ha-tracker.enable-for-all-users`
    Flag to enable, for all users, handling of samples with external labels identifying replicas in an HA Prometheus setup. This defaults to false, and is technically defined in the Distributor limits.
 
-- `distributor.ha-tracker.enable` 
+- `distributor.ha-tracker.enable`
    Enable the distributors HA tracker so that it can accept samples from Prometheus HA replicas gracefully (requires labels). Global (for distributors), this ensures that the necessary internal data structures for the HA handling are created. The option `enable-for-all-users` is still needed to enable ingestion of HA samples for all users.
 
 ### Ring/HA Tracker Store
@@ -231,6 +231,19 @@ It also talks to a KVStore and has it's own copies of the same flags used by the
 - `-ingester.ingester.max-transfer-retries`
 
    How many times a LEAVING ingester tries to find a PENDING ingester during the [hand-over process](ingester-handover.md). Each attempt takes a second or so. (default 10)
+
+- `-ingester.join-incremental-transfer`
+
+  Enables incrementally requesting chunks the joining ingester should own by
+  token. When enabled, the hand-over process is disabled and ingesters move out
+  of PENDING state immediately.
+
+- `-ingester.leave-incremental-transfer`
+
+  Enables incrementally sending chunks the leaving ingester owns to the ingester
+  that will start receiving write traffic. When enabled, takes precedence over
+  chunk flushing and disables handoff. Chunk flushes will still occur if the
+  transfer did not fully complete.
 
 - `-ingester.normalise-tokens`
 

@@ -2,6 +2,7 @@ package ring
 
 import (
 	"fmt"
+	"time"
 )
 
 // replicationStrategy decides, given the set of ingesters eligible for a key,
@@ -28,7 +29,7 @@ func (r *Ring) replicationStrategy(tokens []TokenDesc, op Operation) ([]TokenDes
 	for i := 0; i < len(tokens); {
 		ing := r.ringDesc.Ingesters[tokens[i].Ingester]
 
-		if r.IsHealthyState(&ing, tokens[i].State, op) {
+		if IsHealthyState(&ing, tokens[i].State, op, r.cfg.HeartbeatTimeout) {
 			i++
 		} else {
 			tokens = append(tokens[:i], tokens[i+1:]...)
@@ -47,20 +48,6 @@ func (r *Ring) replicationStrategy(tokens []TokenDesc, op Operation) ([]TokenDes
 	return tokens, maxFailure, nil
 }
 
-// IsHealthyState checks whether an state is in a valid state and whether an
-// ingester is heartbeating.
-//
-// IsHealthyState is used for validating a token state. For validating the
-// overall ingester state, use IsHealthy.
-func (r *Ring) IsHealthyState(ingester *IngesterDesc, state State, op Operation) bool {
-	return ingester.IsHealthyState(op, state, r.cfg.HeartbeatTimeout)
-}
-
-// IsHealthy checks whether an ingester appears to be alive and heartbeating
-func (r *Ring) IsHealthy(ingester *IngesterDesc, op Operation) bool {
-	return ingester.IsHealthy(op, r.cfg.HeartbeatTimeout)
-}
-
 // ReplicationFactor of the ring.
 func (r *Ring) ReplicationFactor() int {
 	return r.cfg.ReplicationFactor
@@ -72,4 +59,19 @@ func (r *Ring) IngesterCount() int {
 	c := len(r.ringDesc.Ingesters)
 	r.mtx.Unlock()
 	return c
+}
+
+// IsHealthyState checks whether an state is in a valid state and whether an
+// ingester is heartbeating.
+//
+// IsHealthyState is used for validating a specific state, and is useful for
+// checking individual tokens.
+func IsHealthyState(ingester *IngesterDesc, state State, op Operation, maxHeartbeat time.Duration) bool {
+	return ingester.IsHealthyState(op, state, maxHeartbeat)
+}
+
+// IsHealthy checks whether an ingester appears to be alive and heartbeating.
+// The heartbeat must be no older than maxHeartbeat to be considered alive.
+func IsHealthy(ingester *IngesterDesc, op Operation, maxHeartbeat time.Duration) bool {
+	return ingester.IsHealthy(op, maxHeartbeat)
 }

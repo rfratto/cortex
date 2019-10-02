@@ -205,7 +205,7 @@ func New(cfg Config, clientConfig client.Config, limits *validation.Overrides, c
 	}
 
 	var err error
-	i.lifecycler, err = ring.NewLifecycler(cfg.LifecyclerConfig, i, "ingester")
+	i.lifecycler, err = ring.NewLifecycler(cfg.LifecyclerConfig, i, nil, "ingester")
 	if err != nil {
 		return nil, err
 	}

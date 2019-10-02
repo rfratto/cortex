@@ -212,9 +212,11 @@ func GenerateRing(t *testing.T, r *Ring, desc string) *Desc {
 		d.Ingesters[id] = ing
 	}
 
-	r.KVClient.CAS(context.Background(), ConsulKey, func(in interface{}) (out interface{}, retry bool, err error) {
-		return d, false, nil
-	})
+	if r != nil {
+		r.KVClient.CAS(context.Background(), ConsulKey, func(in interface{}) (out interface{}, retry bool, err error) {
+			return d, false, nil
+		})
+	}
 
 	return d
 }
@@ -261,11 +263,11 @@ func TestGenerateRing(t *testing.T) {
 
 func TestRingGet(t *testing.T) {
 	tt := []struct {
-		name       string
-		desc       string
-		startToken uint32
-		op         Operation
-		expect     []string
+		name   string
+		desc   string
+		key    uint32
+		op     Operation
+		expect []string
 	}{
 		{"all active", "A B C", 0, Read, []string{"A", "B", "C"}},
 		{"wrap around", "A B C", 2, Read, []string{"C", "A", "B"}},
@@ -273,12 +275,14 @@ func TestRingGet(t *testing.T) {
 		{"skip joining on write", "A B+ C+ D E", 0, Write, []string{"A", "D", "E"}},
 		{"skip leaving on write", "A B- C- D E", 0, Write, []string{"A", "D", "E"}},
 		{"don't skip leaving on read", "A B- C- D E", 0, Read, []string{"A", "B", "C"}},
+		{"duplicates", "A1? A2+ A3 B1 B2+ C1- C2 D1 D2", 0, Write, []string{"A", "B", "C"}},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			var ringConfig Config
 			flagext.DefaultValues(&ringConfig)
+			ringConfig.ReplicationFactor = 3
 			ringConfig.KVStore.Mock = consul.NewInMemoryClient(GetCodec())
 
 			r, err := New(ringConfig, "ingester")
@@ -286,7 +290,7 @@ func TestRingGet(t *testing.T) {
 			defer r.Stop()
 
 			r.ringDesc = GenerateRing(t, r, tc.desc)
-			rs, err := r.Get(tc.startToken, tc.op, nil, nil)
+			rs, err := r.Get(tc.key, tc.op, nil, nil)
 			require.NoError(t, err)
 
 			names := []string{}

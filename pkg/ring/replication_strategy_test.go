@@ -89,8 +89,8 @@ func TestReplicationStrategy(t *testing.T) {
 
 		d := &Desc{
 			Ingesters: map[string]IngesterDesc{
-				"live": IngesterDesc{Timestamp: time.Now().Unix()},
-				"dead": IngesterDesc{},
+				"live": {Timestamp: time.Now().Unix()},
+				"dead": {},
 			},
 			Tokens: tokens,
 		}

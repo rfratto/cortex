@@ -1,6 +1,7 @@
 package ring
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -46,6 +47,58 @@ func NewDesc() *Desc {
 	return &Desc{
 		Ingesters: map[string]IngesterDesc{},
 	}
+}
+
+// AddToken adds the given token into the ring for a specific ingester.
+// If the token already exists for that ingester, it will be overwritten.
+func (d *Desc) AddToken(id string, token StatefulToken, normaliseTokens bool) {
+	ingester := d.Ingesters[id]
+
+	if normaliseTokens {
+		if ingester.InactiveTokens == nil {
+			ingester.InactiveTokens = make(map[uint32]State)
+		}
+
+		found := false
+		for _, t := range ingester.Tokens {
+			if token.Token == t {
+				if token.State != ACTIVE {
+					ingester.InactiveTokens[t] = token.State
+				} else {
+					delete(ingester.InactiveTokens, t)
+				}
+
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			ingester.Tokens = append(ingester.Tokens, token.Token)
+			if token.State != ACTIVE {
+				ingester.InactiveTokens[token.Token] = token.State
+			}
+		}
+	} else {
+		found := false
+		for i, t := range d.Tokens {
+			if t.Token == token.Token {
+				d.Tokens[i].State = token.State
+				found = true
+				break
+			}
+		}
+		if !found {
+			d.Tokens = append(d.Tokens, TokenDesc{
+				Token:    token.Token,
+				Ingester: id,
+				State:    token.State,
+			})
+		}
+		sort.Sort(ByToken(d.Tokens))
+	}
+
+	d.Ingesters[id] = ingester
 }
 
 // AddIngester adds the given ingester to the ring.
@@ -242,7 +295,8 @@ func (d *Desc) Ready(now time.Time, heartbeatTimeout time.Duration) error {
 }
 
 // RefreshTokenState updates the tokens in the ring with the state from the
-// provided tokens.
+// provided tokens. RefreshTokenState will remove denormalised tokens for id
+// that are no longer in the list provided by tokens.
 func (d *Desc) RefreshTokenState(id string, tokens []StatefulToken, normalise bool) {
 	if d.Ingesters == nil {
 		d.Ingesters = make(map[string]IngesterDesc)
@@ -267,22 +321,29 @@ func (d *Desc) RefreshTokenState(id string, tokens []StatefulToken, normalise bo
 
 		d.Ingesters[id] = ing
 	} else {
-		statesMap := make(map[uint32]State, len(tokens))
-		for _, tok := range tokens {
-			statesMap[tok.Token] = tok.State
-		}
+		newTokens := make([]TokenDesc, 0, len(d.Tokens))
 
-		for i, tok := range d.Tokens {
+		// Copy all tokens from other ingesters
+		for _, tok := range d.Tokens {
 			if tok.Ingester != id {
+				newTokens = append(newTokens, tok)
 				continue
 			}
-
-			state, ok := statesMap[tok.Token]
-			if !ok {
-				continue
-			}
-			d.Tokens[i].State = state
 		}
+
+		// Add back in our tokens
+		for _, tok := range tokens {
+			newTokens = append(newTokens, TokenDesc{
+				Token:    tok.Token,
+				State:    tok.State,
+				Ingester: id,
+			})
+		}
+
+		d.Tokens = newTokens
+
+		// Re-sort the list
+		sort.Sort(ByToken(d.Tokens))
 	}
 }
 
@@ -575,4 +636,229 @@ func (d *Desc) RemoveTombstones(limit time.Time) {
 			removed++
 		}
 	}
+}
+
+// search searches the ring for a token. Assumes that the
+// ring is already denormalised.
+func (d *Desc) search(key uint32) int {
+	i := sort.Search(len(d.Tokens), func(x int) bool {
+		return d.Tokens[x].Token >= key
+	})
+	if i >= len(d.Tokens) {
+		i = 0
+	}
+	return i
+}
+
+// NeighborOptions holds options to configure how a ring
+// will be searched for predecessors or successors.
+type NeighborOptions struct {
+	// Start is the starting token to search from.
+	Start StatefulToken
+
+	// Neighbor is the number neighbor to search for.
+	// For example, a Neighbor value of 1 means to
+	// search for the first successor to Start.
+	Neighbor int
+
+	// Op is the operation for which the search is
+	// being performed.
+	Op Operation
+
+	// IncludeStart determines whether or not the
+	// token defined by Start should be counted as one of the
+	// unique ingesters.
+	IncludeStart bool
+
+	// MaxHeartbeat is the maximum heartbeat age to consider an ingester healthy.
+	MaxHeartbeat time.Duration
+}
+
+// Predecessors is a function that acts similarly to Successor but
+// searches the ring in counter-clockwise order. Unlike calling Successor,
+// Predecessors returns multiple tokens: Predecessors is the equivalent of
+// finding all tokens of which tok is successor n to.
+func (d *Desc) Predecessors(opts NeighborOptions) ([]TokenDesc, error) {
+	idx := d.search(opts.Start.Token)
+	if len(d.Tokens) == 0 || d.Tokens[idx].Token != opts.Start.Token {
+		return nil, fmt.Errorf("could not find token %d in ring", opts.Start.Token)
+	}
+	if opts.Neighbor == 0 {
+		return []TokenDesc{d.Tokens[idx]}, nil
+	} else if opts.Neighbor < 0 {
+		return nil, errors.New("Predecessors may only be called with a positive Neighbor value")
+	}
+
+	// Temporarily make the start token ACTIVE since we want it to
+	// be seen in the ring as in the replica set.
+	oldState := d.Tokens[idx].State
+	d.Tokens[idx].State = ACTIVE
+	defer func() {
+		d.Tokens[idx].State = oldState
+	}()
+
+	// Naive solution: go over every token in the ring and see if its
+	// opts.Neighbor successor is opts.Start.
+	predecessors := []TokenDesc{}
+	for _, t := range d.Tokens {
+		ing := d.Ingesters[t.Ingester]
+		if !IsHealthyState(&ing, t.State, opts.Op, opts.MaxHeartbeat) {
+			continue
+		}
+
+		succ, err := d.Successor(NeighborOptions{
+			Start:        t.StatefulToken(),
+			Neighbor:     opts.Neighbor,
+			Op:           opts.Op,
+			MaxHeartbeat: opts.MaxHeartbeat,
+			IncludeStart: true,
+		})
+		if err != nil {
+			return predecessors, err
+		} else if succ.Token == opts.Start.Token {
+			predecessors = append(predecessors, t)
+		}
+	}
+
+	return predecessors, nil
+}
+
+// Successor moves around the ring to find the nth neighbors of tok.
+// The healthiness of the ingester and the state of the token defines
+// which tokens are considered as successors.
+//
+// Tokens are only considered once based on their ingester; if
+// opts.IncludeStart is true, then the ingster for the opts.Start
+// argument will not be considered as a neighbor (i.e., it will act
+// as if we've already seen it).
+//
+// If Successor is called with a positive opts.Neighbor value, Successor
+// searches the ring clockwise. Otherwise, if called with a negative value,
+// Successor searches the ring counter-clockwise.
+func (d *Desc) Successor(opts NeighborOptions) (TokenDesc, error) {
+	idx := d.search(opts.Start.Token)
+	if d.Tokens[idx].Token != opts.Start.Token {
+		return TokenDesc{}, fmt.Errorf("could not find token %d in ring", opts.Start.Token)
+	}
+	if opts.Neighbor == 0 {
+		return d.Tokens[idx], nil
+	}
+
+	numSuccessors := opts.Neighbor
+	if numSuccessors < 0 {
+		numSuccessors = -numSuccessors
+	}
+
+	successors := make([]TokenDesc, 0, numSuccessors)
+	distinct := map[string]struct{}{}
+	if opts.IncludeStart {
+		distinct[d.Tokens[idx].Ingester] = struct{}{}
+	}
+
+	startIdx := idx
+
+	direction := 1
+	if opts.Neighbor < 0 {
+		direction = -1
+	}
+
+	for {
+		idx += direction
+		if idx < 0 {
+			idx = len(d.Tokens) - 1
+		} else {
+			idx %= len(d.Tokens)
+		}
+
+		// Stop if we've completely circled the ring
+		if idx == startIdx {
+			break
+		}
+
+		successor := d.Tokens[idx]
+		if _, ok := distinct[successor.Ingester]; ok {
+			continue
+		}
+		ing := d.Ingesters[successor.Ingester]
+
+		if IsHealthyState(&ing, successor.State, opts.Op, opts.MaxHeartbeat) {
+			successors = append(successors, successor)
+			if len(successors) == numSuccessors {
+				return successors[numSuccessors-1], nil
+			}
+
+			distinct[successor.Ingester] = struct{}{}
+		}
+	}
+
+	return TokenDesc{},
+		fmt.Errorf("could not find neighbor #%d for token %d", opts.Neighbor, opts.Start.Token)
+}
+
+// RangeOptions configures the search parameters of Desc.InRange.
+type RangeOptions struct {
+	// Range of tokens to search.
+	Range TokenRange
+
+	// ID is the ingester ID to search for.
+	ID string
+
+	// Op determines which token are included in the range and
+	// which are skipped.
+	Op Operation
+
+	// LeftInclusive determines that the left hand side of the
+	// pair is inclusive.
+	LeftInclusive bool
+
+	// RightInclusive determines that the right hand side of the
+	// pair is inclusive.
+	RightInclusive bool
+
+	// MaxHeartbeat is the maximum heartbeat age to consider an ingester healthy.
+	MaxHeartbeat time.Duration
+}
+
+// InRange checks to see if a given ingester ID (specified by
+// opts.ID) is in the range from opts.From to opts.To. The
+// inclusivity of each side of the range is determined by
+// opts.LeftInclusive and opts.RightInclusive.
+func (d *Desc) InRange(opts RangeOptions) bool {
+	start := d.search(opts.Range.From)
+	startTok := d.Tokens[start]
+	startIng := d.Ingesters[startTok.Ingester]
+
+	if opts.LeftInclusive && startTok.Ingester == opts.ID &&
+		IsHealthyState(&startIng, startTok.State, opts.Op, opts.MaxHeartbeat) {
+
+		return true
+	} else if startTok.Token == opts.Range.To {
+		return opts.RightInclusive && startTok.Ingester == opts.ID &&
+			IsHealthyState(&startIng, startTok.State, opts.Op, opts.MaxHeartbeat)
+	}
+
+	idx := start
+	for {
+		idx++
+		idx %= len(d.Tokens)
+
+		tok := d.Tokens[idx]
+
+		if idx == start {
+			break
+		} else if tok.Token >= opts.Range.To || tok.Token <= opts.Range.From {
+			break
+		} else if tok.Ingester == opts.ID {
+			ing := d.Ingesters[tok.Ingester]
+			healthy := IsHealthyState(&ing, tok.State, opts.Op, opts.MaxHeartbeat)
+			if healthy {
+				return true
+			}
+		}
+	}
+
+	tok := d.Tokens[idx]
+	ing := d.Ingesters[tok.Ingester]
+	return opts.RightInclusive && tok.Ingester == opts.ID &&
+		IsHealthyState(&ing, tok.State, opts.Op, opts.MaxHeartbeat)
 }

@@ -209,6 +209,11 @@ func migrateRing(desc *Desc) []TokenDesc {
 	return tokens
 }
 
+type indexedToken struct {
+	TokenDesc
+	idx int
+}
+
 // Get returns n (or more) ingesters which form the replicas for the given key.
 func (r *Ring) Get(key uint32, op Operation, ingesters []IngesterDesc,
 	tokens []TokenDesc) (ReplicationSet, error) {
@@ -225,7 +230,7 @@ func (r *Ring) Get(key uint32, op Operation, ingesters []IngesterDesc,
 
 	var (
 		n             = r.cfg.ReplicationFactor
-		distinctHosts = map[string]struct{}{}
+		distinctHosts = map[string]indexedToken{}
 		start         = r.search(key)
 		iterations    = 0
 	)
@@ -234,26 +239,38 @@ func (r *Ring) Get(key uint32, op Operation, ingesters []IngesterDesc,
 		// Wrap i around in the ring.
 		i %= len(r.ringDesc.Tokens)
 
-		// We want n *distinct* ingesters.
 		token := r.ringDesc.Tokens[i]
-		if _, ok := distinctHosts[token.Ingester]; ok {
+
+		if itok, ok := distinctHosts[token.Ingester]; ok {
+			// We want to collect a set of tokens from n distinct ingesters, but,
+			// a subset of tokens in an ingester may be in an invalid state while
+			// another subset is valid. If the previous token we found was invalid
+			// and the current token is valid, we want to do the following:
+			//
+			// - Decrease the replica set size by 1 (offseting for the previous
+			//   invalid token).
+			// - Replace the invalid token with the valid one.
+			if !validateTokenState(itok.TokenDesc, op) && validateTokenState(token, op) {
+				n--
+				tokens[itok.idx] = token
+				distinctHosts[token.Ingester] = indexedToken{token, itok.idx}
+				continue
+			}
+
+			// Otherwise, we want to continue on to the next token.
 			continue
 		}
-		distinctHosts[token.Ingester] = struct{}{}
 
-		// We do not want to Write to Ingesters that are not ACTIVE, but
-		// we do want to write the extra replica somewhere.  So we increase the
-		// size of the set of replicas for the key. This means we have to also
-		// increase the size of the replica set for read, but we can read from
-		// Leaving ingesters, so don't skip it in this case.
-		// NB dead ingester will be filtered later (by replication_strategy.go).
-		if op == Write && token.State != ACTIVE {
-			n++
-		} else if op == Read && (token.State != ACTIVE && token.State != LEAVING) {
+		// We do not want to operate on ingesters that are not in an appropriate
+		// state, but we still do want to operate on a replica somewhere. To
+		// handle this, we increase the size of the set of replicas for the key.
+		// NB dead ingesters will be filtered later (by replication_strategy.go).
+		if !validateTokenState(token, op) {
 			n++
 		}
 
 		tokens = append(tokens, token)
+		distinctHosts[token.Ingester] = indexedToken{token, len(tokens) - 1}
 	}
 
 	liveTokens, maxFailure, err := r.replicationStrategy(tokens, op)
@@ -273,6 +290,20 @@ func (r *Ring) Get(key uint32, op Operation, ingesters []IngesterDesc,
 	}, nil
 }
 
+// validateTokenState ensures that a given state is appropriate for
+// specific operation. Writes should not happen on states that are
+// not ACTIVE, while reads should go to anything that is not ACTIVE
+// or LEAVING.
+func validateTokenState(tok TokenDesc, op Operation) bool {
+	if op == Write && tok.State != ACTIVE {
+		return false
+	} else if op == Read && (tok.State != ACTIVE && tok.State != LEAVING) {
+		return false
+	}
+
+	return true
+}
+
 // GetAll returns all available ingesters in the ring.
 func (r *Ring) GetAll() (ReplicationSet, error) {
 	r.mtx.RLock()
@@ -286,7 +317,7 @@ func (r *Ring) GetAll() (ReplicationSet, error) {
 	maxErrors := r.cfg.ReplicationFactor / 2
 
 	for _, ingester := range r.ringDesc.Ingesters {
-		if !r.IsHealthy(&ingester, Read) {
+		if !IsHealthy(&ingester, Read, r.cfg.HeartbeatTimeout) {
 			maxErrors--
 			continue
 		}
@@ -381,7 +412,7 @@ func (r *Ring) Collect(ch chan<- prometheus.Metric) {
 
 	for _, ingester := range r.ringDesc.Ingesters {
 		s := ingester.State.String()
-		if !r.IsHealthy(&ingester, Reporting) {
+		if !IsHealthy(&ingester, Reporting, r.cfg.HeartbeatTimeout) {
 			s = unhealthy
 		}
 		numByState[s]++
