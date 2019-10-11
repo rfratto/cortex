@@ -26,6 +26,11 @@ import (
 )
 
 var (
+	blockedRanges = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "cortex_ingester_blocked_ranges",
+		Help: "The current number of ranges that will not accept writes by this ingester.",
+	})
+
 	sentChunks = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "cortex_ingester_sent_chunks",
 		Help: "The total number of chunks sent by this ingester whilst leaving.",
@@ -43,66 +48,191 @@ var (
 		Help: "The total number of files received by this ingester whilst joining",
 	})
 
+	incSentChunks = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "cortex_ingester_incremental_sent_chunks",
+		Help: "The total number of chunks sent by this ingester whilst leaving.",
+	})
+	incReceivedChunks = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "cortex_ingester_incremental_received_chunks",
+		Help: "The total number of chunks received by this ingester whilst joining",
+	})
+
+	incSentSeries = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "cortex_ingester_incremental_sent_series",
+		Help: "The total number of series sent by this ingester whilst leaving.",
+	})
+	incReceivedSeries = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "cortex_ingester_incremental_received_series",
+		Help: "The total number of series received by this ingester whilst joining",
+	})
+
 	once *sync.Once
 )
 
 func init() {
 	once = &sync.Once{}
+	prometheus.MustRegister(blockedRanges)
 	prometheus.MustRegister(sentChunks)
 	prometheus.MustRegister(receivedChunks)
 	prometheus.MustRegister(sentFiles)
 	prometheus.MustRegister(receivedFiles)
+	prometheus.MustRegister(incSentChunks)
+	prometheus.MustRegister(incReceivedChunks)
+	prometheus.MustRegister(incSentSeries)
+	prometheus.MustRegister(incReceivedSeries)
+}
+
+type chunkStream interface {
+	Context() context.Context
+	Recv() (*client.TimeSeriesChunk, error)
+}
+
+type acceptChunksOptions struct {
+	UserStates     *userStates
+	Stream         chunkStream
+	ReceivedChunks prometheus.Counter
+	ReceivedSeries prometheus.Counter
+}
+
+func (i *Ingester) acceptChunks(opts acceptChunksOptions) (fromIngesterID string, seriesReceived int, err error) {
+	for {
+		wireSeries, err := opts.Stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fromIngesterID, seriesReceived, err
+		}
+
+		// We can't send "extra" fields with a streaming call, so we repeat
+		// wireSeries.FromIngesterId and assume it is the same every time
+		// round this loop.
+		if fromIngesterID == "" {
+			fromIngesterID = wireSeries.FromIngesterId
+			level.Info(util.Logger).Log("msg", "processing TransferChunks request", "from_ingester", fromIngesterID)
+
+			// Before transfer, make sure 'from' ingester is in correct state to call ClaimTokensFor later.
+			err := i.checkFromIngesterIsInLeavingState(opts.Stream.Context(), fromIngesterID)
+			if err != nil {
+				return fromIngesterID, seriesReceived, err
+			}
+		}
+		descs, err := fromWireChunks(wireSeries.Chunks)
+		if err != nil {
+			return fromIngesterID, seriesReceived, err
+		}
+
+		state, fp, series, err := opts.UserStates.getOrCreateSeries(opts.Stream.Context(), wireSeries.UserId, wireSeries.Labels, wireSeries.Token)
+		if err != nil {
+			return fromIngesterID, seriesReceived, err
+		}
+
+		prevNumChunks := len(series.chunkDescs)
+
+		err = series.setChunks(descs, true)
+		state.fpLocker.Unlock(fp) // acquired in getOrCreateSeries
+		if err != nil {
+			return fromIngesterID, seriesReceived, err
+		}
+
+		seriesReceived++
+		memoryChunks.Add(float64(len(series.chunkDescs) - prevNumChunks))
+
+		if opts.ReceivedChunks != nil {
+			opts.ReceivedChunks.Add(float64(len(descs)))
+		}
+		if opts.ReceivedSeries != nil {
+			opts.ReceivedSeries.Inc()
+		}
+	}
+
+	return fromIngesterID, seriesReceived, nil
+}
+
+type chunkPushStream interface {
+	Send(*client.TimeSeriesChunk) error
+}
+
+type pushChunksOptions struct {
+	States        map[string]*userState
+	Stream        chunkPushStream
+	Filter        func(pair *fingerprintSeriesPair) bool
+	DisallowFlush bool
+
+	SentChunks prometheus.Counter
+	SentSeries prometheus.Counter
+}
+
+func (i *Ingester) pushChunks(opts pushChunksOptions) (sent int, err error) {
+	for userID, state := range opts.States {
+		for pair := range state.fpToSeries.iter() {
+			if opts.Filter != nil && opts.Filter(&pair) {
+				continue
+			}
+
+			state.fpLocker.Lock(pair.fp)
+
+			if len(pair.series.chunkDescs) == 0 {
+				state.fpLocker.Unlock(pair.fp)
+				continue
+			}
+
+			chunks, err := toWireChunks(pair.series.chunkDescs)
+			if err != nil {
+				state.fpLocker.Unlock(pair.fp)
+				return sent, errors.Wrap(err, "toWireChunks")
+			}
+
+			err = opts.Stream.Send(&client.TimeSeriesChunk{
+				FromIngesterId: i.lifecycler.ID,
+				UserId:         userID,
+				Labels:         client.FromLabelsToLabelAdapters(pair.series.metric),
+				Chunks:         chunks,
+				Token:          pair.series.token,
+			})
+			if err == nil && opts.DisallowFlush {
+				// Mark all the chunks as "flushed". They'll retain in
+				// memory until the idle limit kicks in.
+				for _, desc := range pair.series.chunkDescs {
+					desc.flushed = true
+				}
+			}
+
+			state.fpLocker.Unlock(pair.fp)
+
+			if err != nil {
+				return sent, errors.Wrap(err, "Send")
+			}
+
+			sent += len(chunks)
+
+			if opts.SentChunks != nil {
+				opts.SentChunks.Add(float64(len(chunks)))
+			}
+			if opts.SentSeries != nil {
+				opts.SentSeries.Inc()
+			}
+		}
+	}
+
+	return sent, nil
 }
 
 // TransferChunks receives all the chunks from another ingester.
 func (i *Ingester) TransferChunks(stream client.Ingester_TransferChunksServer) error {
 	fromIngesterID := ""
 	seriesReceived := 0
+
 	xfer := func() error {
 		userStates := newUserStates(i.limiter, i.cfg)
 
-		for {
-			wireSeries, err := stream.Recv()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return errors.Wrap(err, "TransferChunks: Recv")
-			}
-
-			// We can't send "extra" fields with a streaming call, so we repeat
-			// wireSeries.FromIngesterId and assume it is the same every time
-			// round this loop.
-			if fromIngesterID == "" {
-				fromIngesterID = wireSeries.FromIngesterId
-				level.Info(util.Logger).Log("msg", "processing TransferChunks request", "from_ingester", fromIngesterID)
-
-				// Before transfer, make sure 'from' ingester is in correct state to call ClaimTokensFor later
-				err := i.checkFromIngesterIsInLeavingState(stream.Context(), fromIngesterID)
-				if err != nil {
-					return err
-				}
-			}
-			descs, err := fromWireChunks(wireSeries.Chunks)
-			if err != nil {
-				return errors.Wrap(err, "TransferChunks: fromWireChunks")
-			}
-
-			state, fp, series, err := userStates.getOrCreateSeries(stream.Context(), wireSeries.UserId, wireSeries.Labels, wireSeries.Token)
-			if err != nil {
-				return errors.Wrapf(err, "TransferChunks: getOrCreateSeries: user %s series %s", wireSeries.UserId, wireSeries.Labels)
-			}
-			prevNumChunks := len(series.chunkDescs)
-
-			err = series.setChunks(descs)
-			state.fpLocker.Unlock(fp) // acquired in getOrCreateSeries
-			if err != nil {
-				return errors.Wrapf(err, "TransferChunks: setChunks: user %s series %s", wireSeries.UserId, wireSeries.Labels)
-			}
-
-			seriesReceived++
-			memoryChunks.Add(float64(len(series.chunkDescs) - prevNumChunks))
-			receivedChunks.Add(float64(len(descs)))
+		fromIngesterID, seriesReceived, err := i.acceptChunks(acceptChunksOptions{
+			UserStates:     userStates,
+			Stream:         stream,
+			ReceivedChunks: receivedChunks,
+		})
+		if err != nil {
+			return err
 		}
 
 		if seriesReceived == 0 {
@@ -123,7 +253,6 @@ func (i *Ingester) TransferChunks(stream client.Ingester_TransferChunksServer) e
 		defer i.userStatesMtx.Unlock()
 
 		i.userStates = userStates
-
 		return nil
 	}
 
@@ -183,14 +312,14 @@ func (i *Ingester) transfer(ctx context.Context, xfer func() error) error {
 	// method, and as such we have to ensure we unlock the mutex.
 	defer func() {
 		state := i.lifecycler.GetState()
-		if i.lifecycler.GetState() == ring.ACTIVE {
+		if state == ring.ACTIVE {
 			return
 		}
 
 		level.Error(util.Logger).Log("msg", "TransferChunks failed, not in ACTIVE state.", "state", state)
 
 		// Enter PENDING state (only valid from JOINING)
-		if i.lifecycler.GetState() == ring.JOINING {
+		if state == ring.JOINING {
 			if err := i.lifecycler.ChangeState(ctx, ring.PENDING); err != nil {
 				level.Error(util.Logger).Log("msg", "error rolling back failed TransferChunks", "err", err)
 				os.Exit(1)
@@ -400,35 +529,14 @@ func (i *Ingester) transferOut(ctx context.Context) error {
 		return errors.Wrap(err, "TransferChunks")
 	}
 
-	for userID, state := range userStatesCopy {
-		for pair := range state.fpToSeries.iter() {
-			state.fpLocker.Lock(pair.fp)
-
-			if len(pair.series.chunkDescs) == 0 { // Nothing to send?
-				state.fpLocker.Unlock(pair.fp)
-				continue
-			}
-
-			chunks, err := toWireChunks(pair.series.chunkDescs)
-			if err != nil {
-				state.fpLocker.Unlock(pair.fp)
-				return errors.Wrap(err, "toWireChunks")
-			}
-
-			err = stream.Send(&client.TimeSeriesChunk{
-				FromIngesterId: i.lifecycler.ID,
-				UserId:         userID,
-				Labels:         client.FromLabelsToLabelAdapters(pair.series.metric),
-				Chunks:         chunks,
-				Token:          pair.series.token,
-			})
-			state.fpLocker.Unlock(pair.fp)
-			if err != nil {
-				return errors.Wrap(err, "Send")
-			}
-
-			sentChunks.Add(float64(len(chunks)))
-		}
+	_, err = i.pushChunks(pushChunksOptions{
+		States:        userStatesCopy,
+		Stream:        stream,
+		DisallowFlush: true,
+		SentChunks:    sentChunks,
+	})
+	if err != nil {
+		return err
 	}
 
 	_, err = stream.CloseAndRecv()
@@ -663,4 +771,397 @@ func batchSend(batch int, b []byte, stream client.Ingester_TransferTSDBClient, t
 	}
 
 	return nil
+}
+
+// SendChunks accepts chunks from a client and moves them into the local Ingester.
+func (i *Ingester) SendChunks(stream client.Ingester_SendChunksServer) error {
+	i.userStatesMtx.Lock()
+	defer i.userStatesMtx.Unlock()
+
+	fromIngesterID, seriesReceived, err := i.acceptChunks(acceptChunksOptions{
+		UserStates:     i.userStates,
+		Stream:         stream,
+		ReceivedChunks: incReceivedChunks,
+		ReceivedSeries: incReceivedSeries,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Close the stream last, as this is what tells the "from" ingester that
+	// it's OK to shut down.
+	if err := stream.SendAndClose(&client.SendChunksResponse{}); err != nil {
+		level.Error(util.Logger).Log("msg", "Error closing SendChunks stream", "from_ingester", fromIngesterID, "err", err)
+		return err
+	}
+
+	// It's valid for an ingester not to have any tokens to send in a range,
+	// just ignore it here.
+	if seriesReceived == 0 {
+		return nil
+	}
+
+	if fromIngesterID == "" {
+		level.Error(util.Logger).Log("msg", "received TransferChunks request with no ID from ingester")
+		return fmt.Errorf("no ingester id")
+	}
+
+	level.Debug(util.Logger).Log("msg", "Successfully received chunks", "from_ingester", fromIngesterID, "series_received", seriesReceived)
+	return nil
+}
+
+// GetChunks accepts a get request from a client and sends all chunks from the serving ingester
+// that fall within the given range to the client.
+func (i *Ingester) GetChunks(req *client.GetChunksRequest, stream client.Ingester_GetChunksServer) error {
+	userStatesCopy := i.userStates.cp()
+	if len(userStatesCopy) == 0 {
+		level.Info(util.Logger).Log("msg", "nothing to transfer")
+		return nil
+	}
+
+	sent, err := i.pushChunks(pushChunksOptions{
+		States:        userStatesCopy,
+		Stream:        stream,
+		DisallowFlush: req.Move,
+		SentChunks:    incSentChunks,
+		SentSeries:    incSentSeries,
+
+		Filter: func(pair *fingerprintSeriesPair) bool {
+			token := pair.series.token
+
+			inRange := false
+			for _, rg := range req.Ranges {
+				if token >= rg.StartRange && token < rg.EndRange {
+					inRange = true
+					break
+				}
+			}
+			return !inRange
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	level.Debug(util.Logger).Log(
+		"msg", "sent chunks in range",
+		"to_ingester", req.FromIngesterId,
+		"ranges", ring.PrintableRanges(makeRingRanges(req.Ranges)),
+		"sent_chunks", sent,
+	)
+	return nil
+}
+
+// BlockTokenRange handles a remote request for a token range to be blocked.
+// Blocked ranges will automatically be unblocked after the RangeBlockPeriod
+// configuration variable.
+//
+// When a range is blocked, the Ingester will no longer accept pushes
+// for any streams whose tokens falls within the blocked ranges. Unblocking
+// the range re-enables those pushes.
+func (i *Ingester) BlockTokenRange(ctx context.Context, req *client.RangeRequest) (*client.BlockRangeResponse, error) {
+	i.blockedTokenMtx.Lock()
+	defer i.blockedTokenMtx.Unlock()
+
+	for _, rg := range req.Ranges {
+		for _, r := range i.blockedTokens {
+			if r.From == rg.StartRange && r.To == rg.EndRange {
+				// Multiple clients may request a block simultaneously. We silently
+				// exit so they can continue processing as normal.
+				level.Warn(util.Logger).Log("msg", "token range already blocked",
+					"start_token", rg.StartRange, "end_token", rg.EndRange)
+
+				continue
+			}
+		}
+
+		i.blockedTokens = append(i.blockedTokens, ring.TokenRange{
+			From: rg.StartRange,
+			To:   rg.EndRange,
+		})
+
+		blockedRanges.Inc()
+	}
+
+	go func() {
+		<-time.After(i.cfg.RangeBlockPeriod)
+		i.blockedTokenMtx.Lock()
+		defer i.blockedTokenMtx.Unlock()
+
+		for _, rg := range req.Ranges {
+			idx := -1
+
+			for n, r := range i.blockedTokens {
+				if r.From == rg.StartRange && r.To == rg.EndRange {
+					idx = n
+					break
+				}
+			}
+
+			if idx == -1 {
+				continue
+			}
+
+			level.Warn(util.Logger).Log("msg", "auto-removing blocked range",
+				"start_token", rg.StartRange, "end_token", rg.EndRange)
+			i.blockedTokens = append(i.blockedTokens[:idx], i.blockedTokens[idx+1:]...)
+			blockedRanges.Dec()
+		}
+	}()
+
+	return &client.BlockRangeResponse{}, nil
+}
+
+// UnblockTokenRange handles a remote request for a token range to be
+// unblocked.
+func (i *Ingester) UnblockTokenRange(ctx context.Context, req *client.RangeRequest) (*client.UnblockRangeResponse, error) {
+	i.blockedTokenMtx.Lock()
+	defer i.blockedTokenMtx.Unlock()
+
+	for _, rg := range req.Ranges {
+		idx := -1
+
+		for n, r := range i.blockedTokens {
+			if r.From == rg.StartRange && r.To == rg.EndRange {
+				idx = n
+				break
+			}
+		}
+
+		if idx == -1 {
+			// Multiple clients may request an unblock simultaneously. We want to silently fail
+			// so they can continue processing as normal.
+			level.Warn(util.Logger).Log("msg", "token range not blocked",
+				"start_token", rg.StartRange, "end_token", rg.EndRange)
+			continue
+		}
+
+		i.blockedTokens = append(i.blockedTokens[:idx], i.blockedTokens[idx+1:]...)
+		blockedRanges.Dec()
+	}
+
+	return &client.UnblockRangeResponse{}, nil
+}
+
+// BlockRanges connects to the ingester at targetAddr and informs them
+// to stop accepting writes in a series of token ranges specified
+// as [from, to).
+func (i *Ingester) BlockRanges(ctx context.Context, ranges []ring.TokenRange, targetAddr string) error {
+
+	if targetAddr == "" {
+		_, err := i.BlockTokenRange(ctx, &client.RangeRequest{
+			Ranges: makeProtoRanges(ranges),
+		})
+		return err
+	}
+
+	c, err := i.cfg.ingesterClientFactory(targetAddr, i.clientConfig)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx = user.InjectOrgID(ctx, "-1")
+	_, err = c.BlockTokenRange(ctx, &client.RangeRequest{
+		Ranges: makeProtoRanges(ranges),
+	})
+
+	if err != nil {
+		err = errors.Wrap(err, "BlockTokenRange")
+	}
+	return nil
+}
+
+// UnblockRanges connects to the ingester at targetAddr and informs them
+// to remove one or more blocks previously set by BlockRanges.
+func (i *Ingester) UnblockRanges(ctx context.Context, ranges []ring.TokenRange,
+	targetAddr string) error {
+
+	if targetAddr == "" {
+		_, err := i.UnblockTokenRange(ctx, &client.RangeRequest{
+			Ranges: makeProtoRanges(ranges),
+		})
+		return err
+	}
+
+	c, err := i.cfg.ingesterClientFactory(targetAddr, i.clientConfig)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx = user.InjectOrgID(ctx, "-1")
+	_, err = c.UnblockTokenRange(ctx, &client.RangeRequest{
+		Ranges: makeProtoRanges(ranges),
+	})
+
+	if err != nil {
+		err = errors.Wrap(err, "BlockTokenRange")
+	}
+	return nil
+}
+
+// SendChunkRanges connects to the ingester at targetAddr and sends all
+// chunks for streams whose fingerprint falls within the series of
+// specified ranges.
+func (i *Ingester) SendChunkRanges(ctx context.Context, ranges []ring.TokenRange,
+	targetAddr string) error {
+
+	userStatesCopy := i.userStates.cp()
+	if len(userStatesCopy) == 0 {
+		level.Info(util.Logger).Log("msg", "nothing to transfer")
+		return nil
+	}
+
+	level.Debug(util.Logger).Log(
+		"msg", "sending chunks in range",
+		"to_ingester", targetAddr,
+		"ranges", ring.PrintableRanges(ranges),
+	)
+
+	c, err := i.cfg.ingesterClientFactory(targetAddr, i.clientConfig)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	ctx = user.InjectOrgID(ctx, "-1")
+	stream, err := c.SendChunks(ctx)
+	if err != nil {
+		return errors.Wrap(err, "SendChunks")
+	}
+
+	_, err = i.pushChunks(pushChunksOptions{
+		States:        userStatesCopy,
+		Stream:        stream,
+		DisallowFlush: true,
+		SentChunks:    incSentChunks,
+		SentSeries:    incSentSeries,
+
+		Filter: func(pair *fingerprintSeriesPair) bool {
+			token := pair.series.token
+
+			inRange := false
+			for _, rg := range ranges {
+				if token >= rg.From && token < rg.To {
+					inRange = true
+					break
+				}
+			}
+			return !inRange
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = stream.CloseAndRecv()
+	if err != nil {
+		return errors.Wrap(err, "CloseAndRecv")
+	}
+
+	level.Debug(util.Logger).Log(
+		"msg", "sent chunks in range",
+		"to_ingester", targetAddr,
+		"ranges", ring.PrintableRanges(ranges),
+	)
+	return nil
+}
+
+// RequestChunkRanges connects to the ingester at targetAddr and requests all
+// chunks for streams whose fingerprint falls within the specified token
+// ranges.
+//
+// If move is true, the target ingester should remove sent chunks from
+// local memory if the transfer succeeds.
+func (i *Ingester) RequestChunkRanges(ctx context.Context, ranges []ring.TokenRange,
+	targetAddr string, move bool) error {
+
+	c, err := i.cfg.ingesterClientFactory(targetAddr, i.clientConfig)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	level.Debug(util.Logger).Log(
+		"msg", "requesting chunks in range",
+		"from_ingester", targetAddr,
+		"ranges", ring.PrintableRanges(ranges),
+	)
+
+	ctx = user.InjectOrgID(ctx, "-1")
+	stream, err := c.GetChunks(ctx, &client.GetChunksRequest{
+		Ranges:         makeProtoRanges(ranges),
+		Move:           move,
+		FromIngesterId: i.lifecycler.ID,
+	})
+	if err != nil {
+		return errors.Wrap(err, "GetChunks")
+	}
+
+	i.userStatesMtx.Lock()
+	defer i.userStatesMtx.Unlock()
+
+	_, seriesReceived, err := i.acceptChunks(acceptChunksOptions{
+		UserStates:     i.userStates,
+		Stream:         stream,
+		ReceivedChunks: incReceivedChunks,
+		ReceivedSeries: incReceivedSeries,
+	})
+	if err != nil {
+		return err
+	}
+
+	level.Debug(util.Logger).Log(
+		"msg", "received chunks in ranges",
+		"from_ingester", targetAddr,
+		"series_received", seriesReceived,
+		"ranges", ring.PrintableRanges(ranges),
+	)
+
+	return nil
+}
+
+// StreamTokens returns series of tokens for in-memory streams.
+func (i *Ingester) StreamTokens() []uint32 {
+	ret := []uint32{}
+
+	userStatesCopy := i.userStates.cp()
+	for _, state := range userStatesCopy {
+		for pair := range state.fpToSeries.iter() {
+			// Skip when there's no chunks in a series. Used to avoid a panic on
+			// calling head.
+			if len(pair.series.chunkDescs) == 0 {
+				continue
+			}
+
+			if !pair.series.head().flushed {
+				ret = append(ret, pair.series.token)
+			}
+		}
+	}
+
+	return ret
+}
+
+func makeRingRanges(ranges []client.TokenRange) []ring.TokenRange {
+	ret := make([]ring.TokenRange, len(ranges))
+	for i, rg := range ranges {
+		ret[i] = ring.TokenRange{
+			From: rg.StartRange,
+			To:   rg.EndRange,
+		}
+	}
+	return ret
+}
+
+func makeProtoRanges(ranges []ring.TokenRange) []client.TokenRange {
+	ret := make([]client.TokenRange, len(ranges))
+	for i, rg := range ranges {
+		ret[i] = client.TokenRange{
+			StartRange: rg.From,
+			EndRange:   rg.To,
+		}
+	}
+	return ret
 }

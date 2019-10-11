@@ -20,11 +20,23 @@ service Ingester {
   rpc AllUserStats(UserStatsRequest) returns (UsersStatsResponse) {};
   rpc MetricsForLabelMatchers(MetricsForLabelMatchersRequest) returns (MetricsForLabelMatchersResponse) {};
 
-  // TransferChunks allows leaving ingester (client) to stream chunks directly to joining ingesters (server).
+  // TransferChunks allows leaving ingester (client) to stream chunks directly
+  // to joining ingesters (server). Called during the hand-off process.
   rpc TransferChunks(stream TimeSeriesChunk) returns (TransferChunksResponse) {};
 
   // TransferTSDB transfers all files of a tsdb to a joining ingester
   rpc TransferTSDB(stream TimeSeriesFile) returns (TransferTSDBResponse) {};
+
+  // SendChunks is invoked by a leaving ingester (client), streaming a subset
+  // of its chunks directly to an existing ingester.
+  rpc SendChunks(stream TimeSeriesChunk) returns (SendChunksResponse) {};
+
+  // GetChunks is invoked by a joining ingester (client). A subset of the
+  // serving ingester's chunks will be sent as a stream.
+  rpc GetChunks(GetChunksRequest) returns (stream TimeSeriesChunk) {};
+
+  rpc BlockTokenRange(RangeRequest) returns (BlockRangeResponse) {};
+  rpc UnblockTokenRange(RangeRequest) returns (UnblockRangeResponse) {};
 }
 
 message WriteRequest {
@@ -129,6 +141,33 @@ message TimeSeries {
 
   // Token used by the distributor.
   uint32 token = 3;
+}
+
+message SendChunksResponse {
+}
+
+message GetChunksRequest {
+  string from_ingester_id = 1;
+  repeated TokenRange ranges = 2 [(gogoproto.nullable) = false];
+
+  // If true, remove the chunks from the server's memory when the
+  // send completes.
+  bool move = 3;
+}
+
+message TokenRange {
+  uint32 start_range = 1;
+  uint32 end_range = 2;
+}
+
+message RangeRequest {
+  repeated TokenRange ranges = 1 [(gogoproto.nullable) = false];
+}
+
+message BlockRangeResponse {
+}
+
+message UnblockRangeResponse {
 }
 
 message LabelPair {

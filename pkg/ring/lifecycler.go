@@ -1259,15 +1259,12 @@ func (i *Lifecycler) joinIncrementalTransfer(ctx context.Context) error {
 		ctx := context.Background()
 
 		for _, block := range pendingUnblocks {
-			rgs := block.rgs
-			addr := block.addr
-
-			err := i.incTransferer.UnblockRanges(ctx, rgs, addr)
+			err := i.incTransferer.UnblockRanges(ctx, block.rgs, block.addr)
 			if err != nil {
 				level.Error(util.Logger).Log(
 					"msg", "failed to unblock transferred ranges",
-					"target_addr", addr,
-					"ranges", PrintableRanges(rgs),
+					"target_addr", block.addr,
+					"ranges", PrintableRanges(block.rgs),
 					"err", err,
 				)
 			}

@@ -103,7 +103,8 @@ type Config struct {
 	LifecyclerConfig ring.LifecyclerConfig `yaml:"lifecycler,omitempty"`
 
 	// Config for transferring chunks.
-	MaxTransferRetries int `yaml:"max_transfer_retries,omitempty"`
+	MaxTransferRetries int           `yaml:"max_transfer_retries,omitempty"`
+	RangeBlockPeriod   time.Duration `yaml:"range_block_period"`
 
 	// Config for chunk flushing.
 	FlushCheckPeriod  time.Duration
@@ -135,6 +136,7 @@ func (cfg *Config) RegisterFlags(f *flag.FlagSet) {
 	cfg.LifecyclerConfig.RegisterFlags(f)
 
 	f.IntVar(&cfg.MaxTransferRetries, "ingester.max-transfer-retries", 10, "Number of times to try and transfer chunks before falling back to flushing.")
+	f.DurationVar(&cfg.RangeBlockPeriod, "ingester.range-block-period", 1*time.Minute, "Period after which write blocks on ranges expire.")
 	f.DurationVar(&cfg.FlushCheckPeriod, "ingester.flush-period", 1*time.Minute, "Period with which to attempt to flush chunks.")
 	f.DurationVar(&cfg.RetainPeriod, "ingester.retain-period", 5*time.Minute, "Period chunks will remain in memory after flushing.")
 	f.DurationVar(&cfg.FlushOpTimeout, "ingester.flush-op-timeout", 1*time.Minute, "Timeout for individual flush operations.")
@@ -172,6 +174,10 @@ type Ingester struct {
 	flushQueues     []*util.PriorityQueue
 	flushQueuesDone sync.WaitGroup
 
+	// Stops specific appends
+	blockedTokenMtx sync.RWMutex
+	blockedTokens   []ring.TokenRange
+
 	// Hook for injecting behaviour from tests.
 	preFlushUserSeries func()
 
@@ -205,7 +211,7 @@ func New(cfg Config, clientConfig client.Config, limits *validation.Overrides, c
 	}
 
 	var err error
-	i.lifecycler, err = ring.NewLifecycler(cfg.LifecyclerConfig, i, nil, "ingester")
+	i.lifecycler, err = ring.NewLifecycler(cfg.LifecyclerConfig, i, i, "ingester")
 	if err != nil {
 		return nil, err
 	}
@@ -264,9 +270,28 @@ func (i *Ingester) Shutdown() {
 
 // StopIncomingRequests is called during the shutdown process.
 func (i *Ingester) StopIncomingRequests() {
-	i.userStatesMtx.Lock()
-	defer i.userStatesMtx.Unlock()
-	i.stopped = true
+	// If we're not incrementally transferring tokens out, we want
+	// to stop all traffic.
+	if !i.cfg.LifecyclerConfig.LeaveIncrementalTransfer {
+		i.userStatesMtx.Lock()
+		defer i.userStatesMtx.Unlock()
+		i.stopped = true
+		return
+	}
+
+	// When we are incrementally transferring tokens, we want to wait
+	// for there to be no blocked ranges on our local ingester.
+	for {
+		i.blockedTokenMtx.RLock()
+		numBlocked := len(i.blockedTokens)
+		i.blockedTokenMtx.RUnlock()
+
+		if numBlocked == 0 {
+			return
+		}
+
+		time.Sleep(time.Millisecond * 250)
+	}
 }
 
 // Push implements client.IngesterServer
@@ -291,7 +316,7 @@ func (i *Ingester) Push(ctx old_ctx.Context, req *client.WriteRequest) (*client.
 			i.metrics.ingestedSamplesFail.Inc()
 			if httpResp, ok := httpgrpc.HTTPResponseFromError(err); ok {
 				switch httpResp.Code {
-				case http.StatusBadRequest, http.StatusTooManyRequests:
+				case http.StatusBadRequest, http.StatusTooManyRequests, http.StatusPreconditionFailed:
 					lastPartialErr = err
 					continue
 				}
@@ -302,7 +327,29 @@ func (i *Ingester) Push(ctx old_ctx.Context, req *client.WriteRequest) (*client.
 	}
 	client.ReuseSlice(req.Timeseries)
 
+	// StatusPreconditionFailed is used by the ingester so other samples can
+	// continue to be written without failing. We want to expose it as a 5xx
+	// error so it can result in a retry from the client if writes to other
+	// ingesters also fail.
+	if resp, ok := httpgrpc.HTTPResponseFromError(lastPartialErr); ok && resp.Code == http.StatusPreconditionFailed {
+		lastPartialErr = httpgrpc.Errorf(http.StatusInternalServerError, string(resp.Body))
+	}
+
 	return &client.WriteResponse{}, lastPartialErr
+}
+
+// checkTokens checks to see if a token is in a blocked range.
+func (i *Ingester) checkToken(token uint32) error {
+	i.blockedTokenMtx.RLock()
+	defer i.blockedTokenMtx.RUnlock()
+
+	for _, rg := range i.blockedTokens {
+		if token >= rg.From && token < rg.To {
+			return httpgrpc.Errorf(http.StatusPreconditionFailed, "transfer in progress")
+		}
+	}
+
+	return nil
 }
 
 func (i *Ingester) append(ctx context.Context, userID string, token uint32, labels labelPairs, timestamp model.Time, value model.SampleValue, source client.WriteRequest_SourceEnum) error {
@@ -322,6 +369,10 @@ func (i *Ingester) append(ctx context.Context, userID string, token uint32, labe
 	if i.stopped {
 		return fmt.Errorf("ingester stopping")
 	}
+	if err := i.checkToken(token); err != nil {
+		return err
+	}
+
 	state, fp, series, err := i.userStates.getOrCreateSeries(ctx, userID, labels, token)
 	if err != nil {
 		state = nil // don't want to unlock the fp if there is an error

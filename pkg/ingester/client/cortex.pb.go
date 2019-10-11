@@ -1074,6 +1074,266 @@ func (m *TimeSeries) GetToken() uint32 {
 	return 0
 }
 
+type SendChunksResponse struct {
+}
+
+func (m *SendChunksResponse) Reset()      { *m = SendChunksResponse{} }
+func (*SendChunksResponse) ProtoMessage() {}
+func (*SendChunksResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_893a47d0a749d749, []int{21}
+}
+func (m *SendChunksResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *SendChunksResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_SendChunksResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *SendChunksResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SendChunksResponse.Merge(m, src)
+}
+func (m *SendChunksResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *SendChunksResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_SendChunksResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SendChunksResponse proto.InternalMessageInfo
+
+type GetChunksRequest struct {
+	FromIngesterId string       `protobuf:"bytes,1,opt,name=from_ingester_id,json=fromIngesterId,proto3" json:"from_ingester_id,omitempty"`
+	Ranges         []TokenRange `protobuf:"bytes,2,rep,name=ranges,proto3" json:"ranges"`
+	// If true, remove the chunks from the server's memory when the
+	// send completes.
+	Move bool `protobuf:"varint,3,opt,name=move,proto3" json:"move,omitempty"`
+}
+
+func (m *GetChunksRequest) Reset()      { *m = GetChunksRequest{} }
+func (*GetChunksRequest) ProtoMessage() {}
+func (*GetChunksRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_893a47d0a749d749, []int{22}
+}
+func (m *GetChunksRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetChunksRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetChunksRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetChunksRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetChunksRequest.Merge(m, src)
+}
+func (m *GetChunksRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetChunksRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetChunksRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetChunksRequest proto.InternalMessageInfo
+
+func (m *GetChunksRequest) GetFromIngesterId() string {
+	if m != nil {
+		return m.FromIngesterId
+	}
+	return ""
+}
+
+func (m *GetChunksRequest) GetRanges() []TokenRange {
+	if m != nil {
+		return m.Ranges
+	}
+	return nil
+}
+
+func (m *GetChunksRequest) GetMove() bool {
+	if m != nil {
+		return m.Move
+	}
+	return false
+}
+
+type TokenRange struct {
+	StartRange uint32 `protobuf:"varint,1,opt,name=start_range,json=startRange,proto3" json:"start_range,omitempty"`
+	EndRange   uint32 `protobuf:"varint,2,opt,name=end_range,json=endRange,proto3" json:"end_range,omitempty"`
+}
+
+func (m *TokenRange) Reset()      { *m = TokenRange{} }
+func (*TokenRange) ProtoMessage() {}
+func (*TokenRange) Descriptor() ([]byte, []int) {
+	return fileDescriptor_893a47d0a749d749, []int{23}
+}
+func (m *TokenRange) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TokenRange) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TokenRange.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TokenRange) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TokenRange.Merge(m, src)
+}
+func (m *TokenRange) XXX_Size() int {
+	return m.Size()
+}
+func (m *TokenRange) XXX_DiscardUnknown() {
+	xxx_messageInfo_TokenRange.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TokenRange proto.InternalMessageInfo
+
+func (m *TokenRange) GetStartRange() uint32 {
+	if m != nil {
+		return m.StartRange
+	}
+	return 0
+}
+
+func (m *TokenRange) GetEndRange() uint32 {
+	if m != nil {
+		return m.EndRange
+	}
+	return 0
+}
+
+type RangeRequest struct {
+	Ranges []TokenRange `protobuf:"bytes,1,rep,name=ranges,proto3" json:"ranges"`
+}
+
+func (m *RangeRequest) Reset()      { *m = RangeRequest{} }
+func (*RangeRequest) ProtoMessage() {}
+func (*RangeRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_893a47d0a749d749, []int{24}
+}
+func (m *RangeRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RangeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RangeRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RangeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RangeRequest.Merge(m, src)
+}
+func (m *RangeRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *RangeRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_RangeRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RangeRequest proto.InternalMessageInfo
+
+func (m *RangeRequest) GetRanges() []TokenRange {
+	if m != nil {
+		return m.Ranges
+	}
+	return nil
+}
+
+type BlockRangeResponse struct {
+}
+
+func (m *BlockRangeResponse) Reset()      { *m = BlockRangeResponse{} }
+func (*BlockRangeResponse) ProtoMessage() {}
+func (*BlockRangeResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_893a47d0a749d749, []int{25}
+}
+func (m *BlockRangeResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *BlockRangeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_BlockRangeResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *BlockRangeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlockRangeResponse.Merge(m, src)
+}
+func (m *BlockRangeResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *BlockRangeResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_BlockRangeResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BlockRangeResponse proto.InternalMessageInfo
+
+type UnblockRangeResponse struct {
+}
+
+func (m *UnblockRangeResponse) Reset()      { *m = UnblockRangeResponse{} }
+func (*UnblockRangeResponse) ProtoMessage() {}
+func (*UnblockRangeResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_893a47d0a749d749, []int{26}
+}
+func (m *UnblockRangeResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UnblockRangeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UnblockRangeResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *UnblockRangeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UnblockRangeResponse.Merge(m, src)
+}
+func (m *UnblockRangeResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *UnblockRangeResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_UnblockRangeResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UnblockRangeResponse proto.InternalMessageInfo
+
 type LabelPair struct {
 	Name  []byte `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
@@ -1082,7 +1342,7 @@ type LabelPair struct {
 func (m *LabelPair) Reset()      { *m = LabelPair{} }
 func (*LabelPair) ProtoMessage() {}
 func (*LabelPair) Descriptor() ([]byte, []int) {
-	return fileDescriptor_893a47d0a749d749, []int{21}
+	return fileDescriptor_893a47d0a749d749, []int{27}
 }
 func (m *LabelPair) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1133,7 +1393,7 @@ type Sample struct {
 func (m *Sample) Reset()      { *m = Sample{} }
 func (*Sample) ProtoMessage() {}
 func (*Sample) Descriptor() ([]byte, []int) {
-	return fileDescriptor_893a47d0a749d749, []int{22}
+	return fileDescriptor_893a47d0a749d749, []int{28}
 }
 func (m *Sample) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1183,7 +1443,7 @@ type LabelMatchers struct {
 func (m *LabelMatchers) Reset()      { *m = LabelMatchers{} }
 func (*LabelMatchers) ProtoMessage() {}
 func (*LabelMatchers) Descriptor() ([]byte, []int) {
-	return fileDescriptor_893a47d0a749d749, []int{23}
+	return fileDescriptor_893a47d0a749d749, []int{29}
 }
 func (m *LabelMatchers) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1226,7 +1486,7 @@ type Metric struct {
 func (m *Metric) Reset()      { *m = Metric{} }
 func (*Metric) ProtoMessage() {}
 func (*Metric) Descriptor() ([]byte, []int) {
-	return fileDescriptor_893a47d0a749d749, []int{24}
+	return fileDescriptor_893a47d0a749d749, []int{30}
 }
 func (m *Metric) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1264,7 +1524,7 @@ type LabelMatcher struct {
 func (m *LabelMatcher) Reset()      { *m = LabelMatcher{} }
 func (*LabelMatcher) ProtoMessage() {}
 func (*LabelMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_893a47d0a749d749, []int{25}
+	return fileDescriptor_893a47d0a749d749, []int{31}
 }
 func (m *LabelMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1324,7 +1584,7 @@ type TimeSeriesFile struct {
 func (m *TimeSeriesFile) Reset()      { *m = TimeSeriesFile{} }
 func (*TimeSeriesFile) ProtoMessage() {}
 func (*TimeSeriesFile) Descriptor() ([]byte, []int) {
-	return fileDescriptor_893a47d0a749d749, []int{26}
+	return fileDescriptor_893a47d0a749d749, []int{32}
 }
 func (m *TimeSeriesFile) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1387,7 +1647,7 @@ type TransferTSDBResponse struct {
 func (m *TransferTSDBResponse) Reset()      { *m = TransferTSDBResponse{} }
 func (*TransferTSDBResponse) ProtoMessage() {}
 func (*TransferTSDBResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_893a47d0a749d749, []int{27}
+	return fileDescriptor_893a47d0a749d749, []int{33}
 }
 func (m *TransferTSDBResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1440,6 +1700,12 @@ func init() {
 	proto.RegisterType((*Chunk)(nil), "cortex.Chunk")
 	proto.RegisterType((*TransferChunksResponse)(nil), "cortex.TransferChunksResponse")
 	proto.RegisterType((*TimeSeries)(nil), "cortex.TimeSeries")
+	proto.RegisterType((*SendChunksResponse)(nil), "cortex.SendChunksResponse")
+	proto.RegisterType((*GetChunksRequest)(nil), "cortex.GetChunksRequest")
+	proto.RegisterType((*TokenRange)(nil), "cortex.TokenRange")
+	proto.RegisterType((*RangeRequest)(nil), "cortex.RangeRequest")
+	proto.RegisterType((*BlockRangeResponse)(nil), "cortex.BlockRangeResponse")
+	proto.RegisterType((*UnblockRangeResponse)(nil), "cortex.UnblockRangeResponse")
 	proto.RegisterType((*LabelPair)(nil), "cortex.LabelPair")
 	proto.RegisterType((*Sample)(nil), "cortex.Sample")
 	proto.RegisterType((*LabelMatchers)(nil), "cortex.LabelMatchers")
@@ -1452,88 +1718,98 @@ func init() {
 func init() { proto.RegisterFile("cortex.proto", fileDescriptor_893a47d0a749d749) }
 
 var fileDescriptor_893a47d0a749d749 = []byte{
-	// 1284 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x57, 0x4d, 0x6f, 0x13, 0xc7,
-	0x1b, 0xdf, 0x8d, 0x5f, 0x12, 0x3f, 0x5e, 0x1b, 0x67, 0x12, 0xc0, 0x2c, 0xff, 0xff, 0x86, 0x8e,
-	0x04, 0x8d, 0xda, 0x62, 0x68, 0x10, 0x2d, 0x87, 0x22, 0xe4, 0x40, 0x00, 0x57, 0x49, 0x08, 0x63,
-	0xd3, 0x56, 0x95, 0x2a, 0x6b, 0x63, 0x4f, 0x92, 0x15, 0xfb, 0x62, 0x76, 0x66, 0xab, 0x72, 0xab,
-	0xd4, 0x0f, 0xd0, 0x4a, 0xbd, 0xf4, 0x23, 0xf4, 0xdc, 0x4b, 0xfb, 0x11, 0x38, 0x72, 0x44, 0x3d,
-	0xa0, 0xe2, 0x5c, 0x7a, 0xe4, 0x23, 0x54, 0x3b, 0x33, 0xbb, 0xde, 0x35, 0xb6, 0x1a, 0xb5, 0xe5,
-	0xb6, 0xf3, 0x3c, 0xbf, 0xf9, 0xcd, 0xf3, 0x3a, 0xf3, 0x2c, 0x18, 0x83, 0x20, 0xe4, 0xf4, 0x9b,
-	0xd6, 0x28, 0x0c, 0x78, 0x80, 0xca, 0x72, 0x65, 0x5e, 0x3e, 0x74, 0xf8, 0x51, 0xb4, 0xdf, 0x1a,
-	0x04, 0xde, 0x95, 0xc3, 0xe0, 0x30, 0xb8, 0x22, 0xd4, 0xfb, 0xd1, 0x81, 0x58, 0x89, 0x85, 0xf8,
-	0x92, 0xdb, 0xf0, 0x6f, 0x3a, 0x18, 0x9f, 0x87, 0x0e, 0xa7, 0x84, 0x3e, 0x89, 0x28, 0xe3, 0x68,
-	0x17, 0x80, 0x3b, 0x1e, 0x65, 0x34, 0x74, 0x28, 0x6b, 0xea, 0x17, 0x0a, 0xeb, 0xd5, 0x0d, 0xd4,
-	0x52, 0x47, 0xf5, 0x1c, 0x8f, 0x76, 0x85, 0x66, 0xd3, 0x7c, 0xf6, 0x72, 0x4d, 0xfb, 0xfd, 0xe5,
-	0x1a, 0xda, 0x0b, 0xa9, 0xed, 0xba, 0xc1, 0xa0, 0x97, 0xee, 0x22, 0x19, 0x06, 0xf4, 0x31, 0x94,
-	0xbb, 0x41, 0x14, 0x0e, 0x68, 0x73, 0xe1, 0x82, 0xbe, 0x5e, 0xdf, 0x58, 0x4b, 0xb8, 0xb2, 0xa7,
-	0xb6, 0x24, 0x64, 0xcb, 0x8f, 0x3c, 0x52, 0x66, 0xe2, 0x1b, 0xaf, 0x01, 0x4c, 0xa4, 0x68, 0x11,
-	0x0a, 0xed, 0xbd, 0x4e, 0x43, 0x43, 0x4b, 0x50, 0x24, 0x8f, 0xb6, 0xb7, 0x1a, 0x3a, 0x3e, 0x05,
-	0x35, 0xc5, 0xc1, 0x46, 0x81, 0xcf, 0x28, 0xbe, 0x09, 0x55, 0x42, 0xed, 0x61, 0xe2, 0x49, 0x0b,
-	0x16, 0x9f, 0x44, 0x59, 0x37, 0x56, 0x93, 0xa3, 0x1f, 0x46, 0x34, 0x7c, 0xaa, 0x60, 0x24, 0x01,
-	0xe1, 0x5b, 0x60, 0xc8, 0xed, 0x92, 0x0e, 0x5d, 0x81, 0xc5, 0x90, 0xb2, 0xc8, 0xe5, 0xc9, 0xfe,
-	0xd3, 0x53, 0xfb, 0x25, 0x8e, 0x24, 0x28, 0xfc, 0x93, 0x0e, 0x46, 0x96, 0x1a, 0x7d, 0x00, 0x88,
-	0x71, 0x3b, 0xe4, 0x7d, 0x11, 0x0f, 0x6e, 0x7b, 0xa3, 0xbe, 0x17, 0x93, 0xe9, 0xeb, 0x05, 0xd2,
-	0x10, 0x9a, 0x5e, 0xa2, 0xd8, 0x61, 0x68, 0x1d, 0x1a, 0xd4, 0x1f, 0xe6, 0xb1, 0x0b, 0x02, 0x5b,
-	0xa7, 0xfe, 0x30, 0x8b, 0xbc, 0x0a, 0x4b, 0x9e, 0xcd, 0x07, 0x47, 0x34, 0x64, 0xcd, 0x42, 0xde,
-	0xb5, 0x6d, 0x7b, 0x9f, 0xba, 0x3b, 0x52, 0x49, 0x52, 0x14, 0xee, 0x40, 0x2d, 0x67, 0x34, 0xba,
-	0x71, 0xc2, 0x34, 0x17, 0xe3, 0x34, 0x67, 0x13, 0x8a, 0x7b, 0xb0, 0x22, 0xa8, 0xba, 0x3c, 0xa4,
-	0xb6, 0x97, 0x12, 0xde, 0x9c, 0x41, 0x78, 0xf6, 0x4d, 0xc2, 0xdb, 0x47, 0x91, 0xff, 0x78, 0x06,
-	0xeb, 0x35, 0x40, 0xc2, 0xf4, 0xcf, 0x6c, 0x37, 0xa2, 0x2c, 0x09, 0xe0, 0xff, 0x01, 0xdc, 0x58,
-	0xda, 0xf7, 0x6d, 0x8f, 0x8a, 0xc0, 0x55, 0x48, 0x45, 0x48, 0x76, 0x6d, 0x8f, 0xe2, 0x1b, 0xb0,
-	0x92, 0xdb, 0xa4, 0x4c, 0x79, 0x07, 0x0c, 0xb9, 0xeb, 0x6b, 0x21, 0x17, 0xc6, 0x54, 0x48, 0xd5,
-	0x9d, 0x40, 0xf1, 0x0a, 0x2c, 0x6f, 0x27, 0x34, 0xc9, 0x69, 0xf8, 0xba, 0xb2, 0x41, 0x09, 0x15,
-	0xdb, 0x1a, 0x54, 0x27, 0x36, 0x24, 0x64, 0x90, 0x1a, 0xc1, 0x30, 0x82, 0xc6, 0x23, 0x46, 0xc3,
-	0x2e, 0xb7, 0x79, 0x4a, 0xf5, 0xab, 0x0e, 0xcb, 0x19, 0xa1, 0xa2, 0xba, 0x08, 0x75, 0xc7, 0x3f,
-	0xa4, 0x8c, 0x3b, 0x81, 0xdf, 0x0f, 0x6d, 0x2e, 0x5d, 0xd2, 0x49, 0x2d, 0x95, 0x12, 0x9b, 0xd3,
-	0xd8, 0x6b, 0x3f, 0xf2, 0xfa, 0x2a, 0x94, 0x71, 0x09, 0x14, 0x49, 0xc5, 0x8f, 0x3c, 0x19, 0xc1,
-	0xb8, 0xaa, 0xec, 0x91, 0xd3, 0x9f, 0x62, 0x2a, 0x08, 0xa6, 0x86, 0x3d, 0x72, 0x3a, 0x39, 0xb2,
-	0x16, 0xac, 0x84, 0x91, 0x4b, 0xa7, 0xe1, 0x45, 0x01, 0x5f, 0x8e, 0x55, 0x39, 0x3c, 0xfe, 0x0a,
-	0x56, 0x62, 0xc3, 0x3b, 0x77, 0xf2, 0xa6, 0x9f, 0x85, 0xc5, 0x88, 0xd1, 0xb0, 0xef, 0x0c, 0x55,
-	0x1a, 0xca, 0xf1, 0xb2, 0x33, 0x44, 0x97, 0xa1, 0x38, 0xb4, 0xb9, 0x2d, 0xcc, 0xac, 0x6e, 0x9c,
-	0x4b, 0x32, 0xfe, 0x86, 0xf3, 0x44, 0xc0, 0xf0, 0x3d, 0x40, 0xb1, 0x8a, 0xe5, 0xd9, 0x3f, 0x84,
-	0x12, 0x8b, 0x05, 0xaa, 0x6e, 0xce, 0x67, 0x59, 0xa6, 0x2c, 0x21, 0x12, 0x89, 0x7f, 0xd1, 0xc1,
-	0xda, 0xa1, 0x3c, 0x74, 0x06, 0xec, 0x6e, 0x10, 0x66, 0xcb, 0x9e, 0xbd, 0xed, 0xf6, 0xbb, 0x01,
-	0x46, 0xd2, 0x58, 0x7d, 0x46, 0xb9, 0x6a, 0xc1, 0xd3, 0xb3, 0x5a, 0x90, 0x91, 0x6a, 0x02, 0xed,
-	0x52, 0x8e, 0x3b, 0xb0, 0x36, 0xd7, 0x66, 0x15, 0x8a, 0x4b, 0x50, 0xf6, 0x04, 0x44, 0xc5, 0xa2,
-	0x9e, 0xd0, 0xca, 0x8d, 0x44, 0x69, 0xf1, 0x0b, 0x1d, 0x4e, 0x4d, 0xb5, 0x55, 0xec, 0xc2, 0x41,
-	0x18, 0x78, 0x2a, 0xd7, 0xd9, 0x6c, 0xd5, 0x63, 0x79, 0x47, 0x89, 0x3b, 0xc3, 0x6c, 0x3a, 0x17,
-	0x72, 0xe9, 0xbc, 0x05, 0x65, 0x51, 0xda, 0xc9, 0xc5, 0xb2, 0x9c, 0xf3, 0x6a, 0xcf, 0x76, 0xc2,
-	0xcd, 0x55, 0x75, 0xf3, 0x1b, 0x42, 0xd4, 0x1e, 0xda, 0x23, 0x4e, 0x43, 0xa2, 0xb6, 0xa1, 0xf7,
-	0xa1, 0x3c, 0x88, 0x8d, 0x61, 0xcd, 0xa2, 0x20, 0xa8, 0x25, 0x04, 0xd9, 0xce, 0x57, 0x10, 0xb4,
-	0x0a, 0x25, 0x1e, 0x3c, 0xa6, 0x7e, 0xb3, 0x74, 0x41, 0x5f, 0xaf, 0x11, 0xb9, 0xc0, 0xdf, 0xeb,
-	0x50, 0x92, 0x0e, 0xbd, 0xad, 0x0c, 0x9a, 0xb0, 0x44, 0xfd, 0x41, 0x30, 0x74, 0xfc, 0x43, 0xd1,
-	0x38, 0x25, 0x92, 0xae, 0x11, 0x52, 0x05, 0x1d, 0x77, 0x88, 0xa1, 0xaa, 0xb6, 0x09, 0x67, 0x7a,
-	0xa1, 0xed, 0xb3, 0x03, 0x1a, 0x0a, 0xc3, 0xd2, 0x74, 0xe1, 0x1f, 0x75, 0x80, 0x49, 0x1a, 0x32,
-	0xe1, 0xd3, 0xff, 0x59, 0xf8, 0x5a, 0xb0, 0xc8, 0x6c, 0x6f, 0xe4, 0x8a, 0xc6, 0xcf, 0xe5, 0xbf,
-	0x2b, 0xc4, 0x2a, 0x80, 0x09, 0x68, 0x12, 0xc1, 0x42, 0x36, 0x82, 0xd7, 0xa1, 0x92, 0x1e, 0x18,
-	0x3b, 0x94, 0x5e, 0x9f, 0x06, 0x11, 0xdf, 0xf1, 0x36, 0x71, 0x39, 0x8a, 0xf8, 0x18, 0x44, 0x2e,
-	0x70, 0x1b, 0xca, 0xf2, 0x94, 0x89, 0x5e, 0x5e, 0x50, 0x72, 0x11, 0x5f, 0xac, 0x33, 0x82, 0x5b,
-	0xe5, 0x93, 0xc8, 0xe2, 0x36, 0xd4, 0x72, 0x75, 0x9d, 0x7b, 0xab, 0xf4, 0x13, 0xbe, 0x55, 0x65,
-	0x59, 0xeb, 0xff, 0x3a, 0x9a, 0xb8, 0x0f, 0x46, 0xf6, 0x10, 0x74, 0x11, 0x8a, 0xfc, 0xe9, 0x48,
-	0x7a, 0x55, 0x9f, 0xd0, 0x09, 0x75, 0xef, 0xe9, 0x88, 0x12, 0xa1, 0x4e, 0x23, 0x26, 0x5b, 0x63,
-	0x2a, 0x62, 0x05, 0x21, 0x54, 0x11, 0xfb, 0x4e, 0x87, 0xfa, 0x24, 0xfd, 0x77, 0x1d, 0x97, 0xfe,
-	0x17, 0x4d, 0x68, 0xc2, 0xd2, 0x81, 0xe3, 0x52, 0x61, 0x83, 0x3c, 0x2e, 0x5d, 0xcf, 0x2c, 0xcf,
-	0x33, 0xb0, 0x9a, 0x94, 0x67, 0xaf, 0x7b, 0x67, 0x33, 0x29, 0xce, 0xf7, 0x3e, 0x85, 0x4a, 0xea,
-	0x1a, 0xaa, 0x40, 0x69, 0xeb, 0xe1, 0xa3, 0xf6, 0x76, 0x43, 0x43, 0x35, 0xa8, 0xec, 0x3e, 0xe8,
-	0xf5, 0xe5, 0x52, 0x47, 0xa7, 0xa0, 0x4a, 0xb6, 0xee, 0x6d, 0x7d, 0xd1, 0xdf, 0x69, 0xf7, 0x6e,
-	0xdf, 0x6f, 0x2c, 0x20, 0x04, 0x75, 0x29, 0xd8, 0x7d, 0xa0, 0x64, 0x85, 0x8d, 0xe3, 0x12, 0x2c,
-	0x25, 0xb6, 0xa3, 0xeb, 0x50, 0xdc, 0x8b, 0xd8, 0x11, 0x5a, 0x9d, 0x35, 0xcc, 0x99, 0xa7, 0xa7,
-	0xa4, 0xaa, 0x55, 0x34, 0xf4, 0x11, 0x94, 0xc4, 0xe8, 0x80, 0x66, 0x4e, 0x62, 0xe6, 0xec, 0xf9,
-	0x0a, 0x6b, 0xe8, 0x0e, 0x54, 0x33, 0x23, 0xc7, 0x9c, 0xdd, 0xe7, 0x73, 0xd2, 0xfc, 0x74, 0x82,
-	0xb5, 0xab, 0x3a, 0xba, 0x0f, 0xd5, 0xcc, 0xb4, 0x80, 0xcc, 0x5c, 0x31, 0xe5, 0xe6, 0x8e, 0x09,
-	0xd7, 0x8c, 0xf1, 0x02, 0x6b, 0x68, 0x0b, 0x60, 0x32, 0x28, 0xa0, 0x73, 0x39, 0x70, 0x76, 0xa2,
-	0x30, 0xcd, 0x59, 0xaa, 0x94, 0x66, 0x13, 0x2a, 0xe9, 0x33, 0x89, 0x9a, 0x33, 0x5e, 0x4e, 0x49,
-	0x32, 0xff, 0x4d, 0xc5, 0x1a, 0xba, 0x0b, 0x46, 0xdb, 0x75, 0x4f, 0x42, 0x63, 0x66, 0x35, 0x6c,
-	0x9a, 0xc7, 0x85, 0xb3, 0x73, 0x5e, 0x26, 0x74, 0x29, 0xff, 0x02, 0xcd, 0x7b, 0x6e, 0xcd, 0x77,
-	0xff, 0x16, 0x97, 0x9e, 0xb6, 0x03, 0xf5, 0xfc, 0x7d, 0x8a, 0xe6, 0x8d, 0x8a, 0xa6, 0x95, 0x2a,
-	0x66, 0x5f, 0xc0, 0xda, 0x7a, 0x9c, 0x59, 0x23, 0x5b, 0xff, 0xe8, 0xcc, 0x9b, 0x64, 0x71, 0x6b,
-	0x9a, 0xff, 0x9b, 0xe6, 0xca, 0x76, 0x4b, 0xcc, 0xb4, 0xf9, 0xc9, 0xf3, 0x57, 0x96, 0xf6, 0xe2,
-	0x95, 0xa5, 0xbd, 0x7e, 0x65, 0xe9, 0xdf, 0x8e, 0x2d, 0xfd, 0xe7, 0xb1, 0xa5, 0x3f, 0x1b, 0x5b,
-	0xfa, 0xf3, 0xb1, 0xa5, 0xff, 0x31, 0xb6, 0xf4, 0x3f, 0xc7, 0x96, 0xf6, 0x7a, 0x6c, 0xe9, 0x3f,
-	0x1c, 0x5b, 0xda, 0xf3, 0x63, 0x4b, 0x7b, 0x71, 0x6c, 0x69, 0x5f, 0x96, 0x07, 0xae, 0x43, 0x7d,
-	0xbe, 0x5f, 0x16, 0xff, 0x54, 0xd7, 0xfe, 0x0a, 0x00, 0x00, 0xff, 0xff, 0xc2, 0x05, 0xee, 0xb2,
-	0x9a, 0x0d, 0x00, 0x00,
+	// 1454 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x57, 0x4b, 0x6f, 0x13, 0xd7,
+	0x17, 0x9f, 0x89, 0x1d, 0xc7, 0x3e, 0x1e, 0x3b, 0xce, 0x4d, 0x08, 0x61, 0xf8, 0xff, 0x27, 0xf4,
+	0x4a, 0xd0, 0xa8, 0x2d, 0x81, 0x06, 0xd1, 0xb2, 0x28, 0xa2, 0x09, 0x18, 0x30, 0x4a, 0x42, 0xb8,
+	0x76, 0xda, 0xaa, 0x52, 0x65, 0x4d, 0xec, 0x9b, 0x64, 0xc4, 0x3c, 0xcc, 0x3c, 0x50, 0xd9, 0xa1,
+	0xf6, 0x03, 0xb4, 0x52, 0x37, 0xfd, 0x08, 0x5d, 0x77, 0xd3, 0x7e, 0x04, 0x96, 0x2c, 0x51, 0x17,
+	0xa8, 0x84, 0x4d, 0x97, 0x7c, 0x84, 0xea, 0x3e, 0xe6, 0xe5, 0x8c, 0x45, 0xd4, 0x96, 0xdd, 0xdc,
+	0x73, 0x7e, 0xf7, 0x77, 0xcf, 0x3d, 0x8f, 0x7b, 0xce, 0x80, 0x36, 0xf0, 0xfc, 0x90, 0x7e, 0xbb,
+	0x3a, 0xf2, 0xbd, 0xd0, 0x43, 0x15, 0xb1, 0xd2, 0x2f, 0x1e, 0x58, 0xe1, 0x61, 0xb4, 0xb7, 0x3a,
+	0xf0, 0x9c, 0x4b, 0x07, 0xde, 0x81, 0x77, 0x89, 0xab, 0xf7, 0xa2, 0x7d, 0xbe, 0xe2, 0x0b, 0xfe,
+	0x25, 0xb6, 0xe1, 0xdf, 0x55, 0xd0, 0xbe, 0xf4, 0xad, 0x90, 0x12, 0xfa, 0x28, 0xa2, 0x41, 0x88,
+	0xb6, 0x01, 0x42, 0xcb, 0xa1, 0x01, 0xf5, 0x2d, 0x1a, 0x2c, 0xa9, 0xe7, 0x4a, 0x2b, 0xf5, 0x35,
+	0xb4, 0x2a, 0x8f, 0xea, 0x59, 0x0e, 0xed, 0x72, 0xcd, 0x86, 0xfe, 0xec, 0xe5, 0xb2, 0xf2, 0xc7,
+	0xcb, 0x65, 0xb4, 0xe3, 0x53, 0xd3, 0xb6, 0xbd, 0x41, 0x2f, 0xd9, 0x45, 0x32, 0x0c, 0xe8, 0x53,
+	0xa8, 0x74, 0xbd, 0xc8, 0x1f, 0xd0, 0xa5, 0xa9, 0x73, 0xea, 0x4a, 0x73, 0x6d, 0x39, 0xe6, 0xca,
+	0x9e, 0xba, 0x2a, 0x20, 0x6d, 0x37, 0x72, 0x48, 0x25, 0xe0, 0xdf, 0x78, 0x19, 0x20, 0x95, 0xa2,
+	0x19, 0x28, 0xad, 0xef, 0x74, 0x5a, 0x0a, 0xaa, 0x42, 0x99, 0xec, 0x6e, 0xb6, 0x5b, 0x2a, 0x9e,
+	0x85, 0x86, 0xe4, 0x08, 0x46, 0x9e, 0x1b, 0x50, 0x7c, 0x1d, 0xea, 0x84, 0x9a, 0xc3, 0xf8, 0x26,
+	0xab, 0x30, 0xf3, 0x28, 0xca, 0x5e, 0x63, 0x21, 0x3e, 0xfa, 0x41, 0x44, 0xfd, 0x27, 0x12, 0x46,
+	0x62, 0x10, 0xbe, 0x01, 0x9a, 0xd8, 0x2e, 0xe8, 0xd0, 0x25, 0x98, 0xf1, 0x69, 0x10, 0xd9, 0x61,
+	0xbc, 0xff, 0xd4, 0xd8, 0x7e, 0x81, 0x23, 0x31, 0x0a, 0xff, 0xac, 0x82, 0x96, 0xa5, 0x46, 0x1f,
+	0x01, 0x0a, 0x42, 0xd3, 0x0f, 0xfb, 0xdc, 0x1f, 0xa1, 0xe9, 0x8c, 0xfa, 0x0e, 0x23, 0x53, 0x57,
+	0x4a, 0xa4, 0xc5, 0x35, 0xbd, 0x58, 0xb1, 0x15, 0xa0, 0x15, 0x68, 0x51, 0x77, 0x98, 0xc7, 0x4e,
+	0x71, 0x6c, 0x93, 0xba, 0xc3, 0x2c, 0xf2, 0x32, 0x54, 0x1d, 0x33, 0x1c, 0x1c, 0x52, 0x3f, 0x58,
+	0x2a, 0xe5, 0xaf, 0xb6, 0x69, 0xee, 0x51, 0x7b, 0x4b, 0x28, 0x49, 0x82, 0xc2, 0x1d, 0x68, 0xe4,
+	0x8c, 0x46, 0xd7, 0x4e, 0x18, 0xe6, 0x32, 0x0b, 0x73, 0x36, 0xa0, 0xb8, 0x07, 0xf3, 0x9c, 0xaa,
+	0x1b, 0xfa, 0xd4, 0x74, 0x12, 0xc2, 0xeb, 0x05, 0x84, 0xa7, 0x8f, 0x13, 0xde, 0x3c, 0x8c, 0xdc,
+	0x87, 0x05, 0xac, 0x57, 0x00, 0x71, 0xd3, 0xbf, 0x30, 0xed, 0x88, 0x06, 0xb1, 0x03, 0xff, 0x0f,
+	0x60, 0x33, 0x69, 0xdf, 0x35, 0x1d, 0xca, 0x1d, 0x57, 0x23, 0x35, 0x2e, 0xd9, 0x36, 0x1d, 0x8a,
+	0xaf, 0xc1, 0x7c, 0x6e, 0x93, 0x34, 0xe5, 0x3d, 0xd0, 0xc4, 0xae, 0xc7, 0x5c, 0xce, 0x8d, 0xa9,
+	0x91, 0xba, 0x9d, 0x42, 0xf1, 0x3c, 0xcc, 0x6d, 0xc6, 0x34, 0xf1, 0x69, 0xf8, 0xaa, 0xb4, 0x41,
+	0x0a, 0x25, 0xdb, 0x32, 0xd4, 0x53, 0x1b, 0x62, 0x32, 0x48, 0x8c, 0x08, 0x30, 0x82, 0xd6, 0x6e,
+	0x40, 0xfd, 0x6e, 0x68, 0x86, 0x09, 0xd5, 0x6f, 0x2a, 0xcc, 0x65, 0x84, 0x92, 0xea, 0x3c, 0x34,
+	0x2d, 0xf7, 0x80, 0x06, 0xa1, 0xe5, 0xb9, 0x7d, 0xdf, 0x0c, 0xc5, 0x95, 0x54, 0xd2, 0x48, 0xa4,
+	0xc4, 0x0c, 0x29, 0xbb, 0xb5, 0x1b, 0x39, 0x7d, 0xe9, 0x4a, 0x96, 0x02, 0x65, 0x52, 0x73, 0x23,
+	0x47, 0x78, 0x90, 0x65, 0x95, 0x39, 0xb2, 0xfa, 0x63, 0x4c, 0x25, 0xce, 0xd4, 0x32, 0x47, 0x56,
+	0x27, 0x47, 0xb6, 0x0a, 0xf3, 0x7e, 0x64, 0xd3, 0x71, 0x78, 0x99, 0xc3, 0xe7, 0x98, 0x2a, 0x87,
+	0xc7, 0xdf, 0xc0, 0x3c, 0x33, 0xbc, 0x73, 0x2b, 0x6f, 0xfa, 0x69, 0x98, 0x89, 0x02, 0xea, 0xf7,
+	0xad, 0xa1, 0x0c, 0x43, 0x85, 0x2d, 0x3b, 0x43, 0x74, 0x11, 0xca, 0x43, 0x33, 0x34, 0xb9, 0x99,
+	0xf5, 0xb5, 0x33, 0x71, 0xc4, 0x8f, 0x5d, 0x9e, 0x70, 0x18, 0xbe, 0x03, 0x88, 0xa9, 0x82, 0x3c,
+	0xfb, 0xc7, 0x30, 0x1d, 0x30, 0x81, 0xcc, 0x9b, 0xb3, 0x59, 0x96, 0x31, 0x4b, 0x88, 0x40, 0xe2,
+	0x5f, 0x55, 0x30, 0xb6, 0x68, 0xe8, 0x5b, 0x83, 0xe0, 0xb6, 0xe7, 0x67, 0xd3, 0x3e, 0x78, 0xd7,
+	0xe5, 0x77, 0x0d, 0xb4, 0xb8, 0xb0, 0xfa, 0x01, 0x0d, 0x65, 0x09, 0x9e, 0x2a, 0x2a, 0xc1, 0x80,
+	0xd4, 0x63, 0x68, 0x97, 0x86, 0xb8, 0x03, 0xcb, 0x13, 0x6d, 0x96, 0xae, 0xb8, 0x00, 0x15, 0x87,
+	0x43, 0xa4, 0x2f, 0x9a, 0x31, 0xad, 0xd8, 0x48, 0xa4, 0x16, 0xbf, 0x50, 0x61, 0x76, 0xac, 0xac,
+	0xd8, 0x15, 0xf6, 0x7d, 0xcf, 0x91, 0xb1, 0xce, 0x46, 0xab, 0xc9, 0xe4, 0x1d, 0x29, 0xee, 0x0c,
+	0xb3, 0xe1, 0x9c, 0xca, 0x85, 0xf3, 0x06, 0x54, 0x78, 0x6a, 0xc7, 0x0f, 0xcb, 0x5c, 0xee, 0x56,
+	0x3b, 0xa6, 0xe5, 0x6f, 0x2c, 0xc8, 0x97, 0x5f, 0xe3, 0xa2, 0xf5, 0xa1, 0x39, 0x0a, 0xa9, 0x4f,
+	0xe4, 0x36, 0xf4, 0x21, 0x54, 0x06, 0xcc, 0x98, 0x60, 0xa9, 0xcc, 0x09, 0x1a, 0x31, 0x41, 0xb6,
+	0xf2, 0x25, 0x04, 0x2d, 0xc0, 0x74, 0xe8, 0x3d, 0xa4, 0xee, 0xd2, 0xf4, 0x39, 0x75, 0xa5, 0x41,
+	0xc4, 0x02, 0xff, 0xa0, 0xc2, 0xb4, 0xb8, 0xd0, 0xbb, 0x8a, 0xa0, 0x0e, 0x55, 0xea, 0x0e, 0xbc,
+	0xa1, 0xe5, 0x1e, 0xf0, 0xc2, 0x99, 0x26, 0xc9, 0x1a, 0x21, 0x99, 0xd0, 0xac, 0x42, 0x34, 0x99,
+	0xb5, 0x4b, 0xb0, 0xd8, 0xf3, 0x4d, 0x37, 0xd8, 0xa7, 0x3e, 0x37, 0x2c, 0x09, 0x17, 0xfe, 0x49,
+	0x05, 0x48, 0xc3, 0x90, 0x71, 0x9f, 0xfa, 0xcf, 0xdc, 0xb7, 0x0a, 0x33, 0x81, 0xe9, 0x8c, 0x6c,
+	0x5e, 0xf8, 0xb9, 0xf8, 0x77, 0xb9, 0x58, 0x3a, 0x30, 0x06, 0xa5, 0x1e, 0x2c, 0x65, 0x3d, 0xb8,
+	0x00, 0xa8, 0x4b, 0xdd, 0xe1, 0x98, 0xad, 0xdf, 0xa9, 0xd0, 0xba, 0x43, 0xc3, 0x58, 0x2a, 0x8a,
+	0xe4, 0xe4, 0x39, 0x73, 0x19, 0x2a, 0xbe, 0xc9, 0x96, 0xd2, 0xb2, 0xb4, 0x5d, 0xb0, 0x33, 0x09,
+	0x53, 0xc5, 0xe1, 0x15, 0x38, 0xe6, 0x4a, 0xc7, 0x7b, 0x2c, 0xde, 0xa6, 0x2a, 0xe1, 0xdf, 0xf8,
+	0x1e, 0x40, 0x8a, 0x67, 0x8f, 0xab, 0x08, 0x30, 0xdf, 0xc1, 0x0f, 0x6e, 0x10, 0xe0, 0x22, 0x01,
+	0x38, 0x0b, 0x35, 0x16, 0x53, 0xa1, 0x9e, 0xe2, 0xea, 0x2a, 0x75, 0x87, 0x5c, 0x89, 0x3f, 0x07,
+	0x8d, 0x7f, 0xc4, 0x77, 0x49, 0x2d, 0x54, 0x4f, 0x66, 0x21, 0x73, 0xd4, 0x86, 0xed, 0x0d, 0x1e,
+	0x4a, 0x1a, 0xe9, 0xa8, 0x45, 0x58, 0xd8, 0x75, 0xf7, 0x8e, 0xcb, 0xaf, 0x42, 0x2d, 0x89, 0x23,
+	0xbb, 0x5c, 0xd2, 0x95, 0x34, 0xc2, 0xbf, 0x59, 0x34, 0x78, 0xcf, 0xe1, 0x96, 0x6a, 0x44, 0x2c,
+	0xf0, 0x3a, 0x54, 0x44, 0xf0, 0x52, 0xbd, 0x78, 0xf7, 0xc5, 0x82, 0xf5, 0xab, 0x82, 0x9c, 0xad,
+	0x87, 0x69, 0xc2, 0xe2, 0x75, 0x68, 0xe4, 0x9e, 0x8b, 0xdc, 0x08, 0xa0, 0x9e, 0x70, 0x04, 0xa8,
+	0x88, 0x27, 0xe4, 0x5f, 0x27, 0x29, 0xee, 0x83, 0x96, 0x3d, 0x04, 0x9d, 0x87, 0x72, 0xf8, 0x64,
+	0x24, 0x6e, 0xd5, 0x4c, 0xe9, 0xb8, 0xba, 0xf7, 0x64, 0x44, 0x09, 0x57, 0x27, 0x1e, 0x13, 0x2f,
+	0xce, 0x98, 0xc7, 0x4a, 0x5c, 0x28, 0x3d, 0xf6, 0xbd, 0x0a, 0xcd, 0xb4, 0xaa, 0x6e, 0x5b, 0x36,
+	0xfd, 0x2f, 0xde, 0x36, 0x1d, 0xaa, 0xfb, 0x96, 0x4d, 0xb9, 0x0d, 0xe2, 0xb8, 0x64, 0x5d, 0x58,
+	0xf5, 0x8b, 0xb0, 0x10, 0x57, 0x7d, 0xaf, 0x7b, 0x6b, 0x23, 0x4e, 0x83, 0x0f, 0xee, 0x41, 0x2d,
+	0xb9, 0x1a, 0xaa, 0xc1, 0x74, 0xfb, 0xc1, 0xee, 0xfa, 0x66, 0x4b, 0x41, 0x0d, 0xa8, 0x6d, 0xdf,
+	0xef, 0xf5, 0xc5, 0x52, 0x45, 0xb3, 0x50, 0x27, 0xed, 0x3b, 0xed, 0xaf, 0xfa, 0x5b, 0xeb, 0xbd,
+	0x9b, 0x77, 0x5b, 0x53, 0x08, 0x41, 0x53, 0x08, 0xb6, 0xef, 0x4b, 0x59, 0x69, 0xed, 0x69, 0x15,
+	0xaa, 0xb1, 0xed, 0xe8, 0x2a, 0x94, 0x77, 0xa2, 0xe0, 0x10, 0x2d, 0x14, 0xcd, 0xc8, 0xfa, 0xa9,
+	0x31, 0xa9, 0x4c, 0x4a, 0x05, 0x7d, 0x02, 0xd3, 0x7c, 0x22, 0x43, 0x85, 0x03, 0xae, 0x5e, 0x3c,
+	0xb6, 0x62, 0x05, 0xdd, 0x82, 0x7a, 0x66, 0x92, 0x9b, 0xb0, 0xfb, 0x6c, 0x4e, 0x9a, 0x1f, 0xfa,
+	0xb0, 0x72, 0x59, 0x45, 0x77, 0xa1, 0x9e, 0x19, 0xc2, 0x90, 0x9e, 0x4b, 0xa6, 0xdc, 0x38, 0x97,
+	0x72, 0x15, 0x4c, 0x6d, 0x58, 0x41, 0x6d, 0x80, 0x74, 0xfe, 0x42, 0x67, 0x72, 0xe0, 0xec, 0xa0,
+	0xa6, 0xeb, 0x45, 0xaa, 0x84, 0x66, 0x03, 0x6a, 0xc9, 0xf4, 0x81, 0x96, 0x0a, 0x06, 0x12, 0x41,
+	0x32, 0x79, 0x54, 0xc1, 0x0a, 0xba, 0x0d, 0xda, 0xba, 0x6d, 0x9f, 0x84, 0x46, 0xcf, 0x6a, 0x82,
+	0x71, 0x1e, 0x1b, 0x4e, 0x4f, 0x68, 0xf8, 0xe8, 0x42, 0xbe, 0xb1, 0x4f, 0x9a, 0x62, 0xf4, 0xf7,
+	0xdf, 0x8a, 0x4b, 0x4e, 0xdb, 0x82, 0x66, 0xbe, 0x4d, 0xa1, 0x49, 0x13, 0xb8, 0x6e, 0x24, 0x8a,
+	0xe2, 0xbe, 0xa6, 0xac, 0xb0, 0xc8, 0x6a, 0xd9, 0xfc, 0x47, 0x8b, 0xc7, 0xc9, 0x58, 0x69, 0xea,
+	0xff, 0x1b, 0xe7, 0xca, 0x56, 0x0b, 0x67, 0x6a, 0x03, 0xa4, 0xfd, 0x68, 0xb2, 0x51, 0x89, 0x2f,
+	0x0b, 0x9a, 0x17, 0xa3, 0xd9, 0x80, 0x5a, 0xd2, 0xbf, 0xd2, 0x90, 0x8c, 0xb7, 0x34, 0x7d, 0x12,
+	0x3f, 0x4f, 0xd7, 0x36, 0xcc, 0xf2, 0x17, 0x3f, 0xd3, 0x84, 0x92, 0xc4, 0xcf, 0x36, 0x93, 0xd4,
+	0x98, 0x82, 0x06, 0xa1, 0xa0, 0x0e, 0xcc, 0xc9, 0x16, 0xf1, 0x56, 0xa2, 0xc4, 0x3d, 0x85, 0x3d,
+	0x45, 0xd9, 0xf8, 0xec, 0xf9, 0x2b, 0x43, 0x79, 0xf1, 0xca, 0x50, 0xde, 0xbc, 0x32, 0xd4, 0xa7,
+	0x47, 0x86, 0xfa, 0xcb, 0x91, 0xa1, 0x3e, 0x3b, 0x32, 0xd4, 0xe7, 0x47, 0x86, 0xfa, 0xe7, 0x91,
+	0xa1, 0xfe, 0x75, 0x64, 0x28, 0x6f, 0x8e, 0x0c, 0xf5, 0xc7, 0xd7, 0x86, 0xf2, 0xfc, 0xb5, 0xa1,
+	0xbc, 0x78, 0x6d, 0x28, 0x5f, 0x57, 0x06, 0xb6, 0x45, 0xdd, 0x70, 0xaf, 0xc2, 0xff, 0xe3, 0xaf,
+	0xfc, 0x1d, 0x00, 0x00, 0xff, 0xff, 0xad, 0x26, 0x68, 0x4a, 0x0e, 0x10, 0x00, 0x00,
 }
 
 func (x MatchType) String() string {
@@ -2171,6 +2447,160 @@ func (this *TimeSeries) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *SendChunksResponse) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*SendChunksResponse)
+	if !ok {
+		that2, ok := that.(SendChunksResponse)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	return true
+}
+func (this *GetChunksRequest) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*GetChunksRequest)
+	if !ok {
+		that2, ok := that.(GetChunksRequest)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.FromIngesterId != that1.FromIngesterId {
+		return false
+	}
+	if len(this.Ranges) != len(that1.Ranges) {
+		return false
+	}
+	for i := range this.Ranges {
+		if !this.Ranges[i].Equal(&that1.Ranges[i]) {
+			return false
+		}
+	}
+	if this.Move != that1.Move {
+		return false
+	}
+	return true
+}
+func (this *TokenRange) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*TokenRange)
+	if !ok {
+		that2, ok := that.(TokenRange)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.StartRange != that1.StartRange {
+		return false
+	}
+	if this.EndRange != that1.EndRange {
+		return false
+	}
+	return true
+}
+func (this *RangeRequest) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RangeRequest)
+	if !ok {
+		that2, ok := that.(RangeRequest)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if len(this.Ranges) != len(that1.Ranges) {
+		return false
+	}
+	for i := range this.Ranges {
+		if !this.Ranges[i].Equal(&that1.Ranges[i]) {
+			return false
+		}
+	}
+	return true
+}
+func (this *BlockRangeResponse) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*BlockRangeResponse)
+	if !ok {
+		that2, ok := that.(BlockRangeResponse)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	return true
+}
+func (this *UnblockRangeResponse) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*UnblockRangeResponse)
+	if !ok {
+		that2, ok := that.(UnblockRangeResponse)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	return true
+}
 func (this *LabelPair) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -2629,6 +3059,78 @@ func (this *TimeSeries) GoString() string {
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
+func (this *SendChunksResponse) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 4)
+	s = append(s, "&client.SendChunksResponse{")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *GetChunksRequest) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&client.GetChunksRequest{")
+	s = append(s, "FromIngesterId: "+fmt.Sprintf("%#v", this.FromIngesterId)+",\n")
+	if this.Ranges != nil {
+		vs := make([]*TokenRange, len(this.Ranges))
+		for i := range vs {
+			vs[i] = &this.Ranges[i]
+		}
+		s = append(s, "Ranges: "+fmt.Sprintf("%#v", vs)+",\n")
+	}
+	s = append(s, "Move: "+fmt.Sprintf("%#v", this.Move)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *TokenRange) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 6)
+	s = append(s, "&client.TokenRange{")
+	s = append(s, "StartRange: "+fmt.Sprintf("%#v", this.StartRange)+",\n")
+	s = append(s, "EndRange: "+fmt.Sprintf("%#v", this.EndRange)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *RangeRequest) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&client.RangeRequest{")
+	if this.Ranges != nil {
+		vs := make([]*TokenRange, len(this.Ranges))
+		for i := range vs {
+			vs[i] = &this.Ranges[i]
+		}
+		s = append(s, "Ranges: "+fmt.Sprintf("%#v", vs)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *BlockRangeResponse) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 4)
+	s = append(s, "&client.BlockRangeResponse{")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *UnblockRangeResponse) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 4)
+	s = append(s, "&client.UnblockRangeResponse{")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
 func (this *LabelPair) GoString() string {
 	if this == nil {
 		return "nil"
@@ -2736,10 +3238,19 @@ type IngesterClient interface {
 	UserStats(ctx context.Context, in *UserStatsRequest, opts ...grpc.CallOption) (*UserStatsResponse, error)
 	AllUserStats(ctx context.Context, in *UserStatsRequest, opts ...grpc.CallOption) (*UsersStatsResponse, error)
 	MetricsForLabelMatchers(ctx context.Context, in *MetricsForLabelMatchersRequest, opts ...grpc.CallOption) (*MetricsForLabelMatchersResponse, error)
-	// TransferChunks allows leaving ingester (client) to stream chunks directly to joining ingesters (server).
+	// TransferChunks allows leaving ingester (client) to stream chunks directly
+	// to joining ingesters (server). Called during the hand-off process.
 	TransferChunks(ctx context.Context, opts ...grpc.CallOption) (Ingester_TransferChunksClient, error)
 	// TransferTSDB transfers all files of a tsdb to a joining ingester
 	TransferTSDB(ctx context.Context, opts ...grpc.CallOption) (Ingester_TransferTSDBClient, error)
+	// SendChunks is invoked by a leaving ingester (client), streaming a subset
+	// of its chunks directly to an existing ingester.
+	SendChunks(ctx context.Context, opts ...grpc.CallOption) (Ingester_SendChunksClient, error)
+	// GetChunks is invoked by a joining ingester (client). A subset of the
+	// serving ingester's chunks will be sent as a stream.
+	GetChunks(ctx context.Context, in *GetChunksRequest, opts ...grpc.CallOption) (Ingester_GetChunksClient, error)
+	BlockTokenRange(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (*BlockRangeResponse, error)
+	UnblockTokenRange(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (*UnblockRangeResponse, error)
 }
 
 type ingesterClient struct {
@@ -2913,6 +3424,90 @@ func (x *ingesterTransferTSDBClient) CloseAndRecv() (*TransferTSDBResponse, erro
 	return m, nil
 }
 
+func (c *ingesterClient) SendChunks(ctx context.Context, opts ...grpc.CallOption) (Ingester_SendChunksClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Ingester_serviceDesc.Streams[3], "/cortex.Ingester/SendChunks", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &ingesterSendChunksClient{stream}
+	return x, nil
+}
+
+type Ingester_SendChunksClient interface {
+	Send(*TimeSeriesChunk) error
+	CloseAndRecv() (*SendChunksResponse, error)
+	grpc.ClientStream
+}
+
+type ingesterSendChunksClient struct {
+	grpc.ClientStream
+}
+
+func (x *ingesterSendChunksClient) Send(m *TimeSeriesChunk) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *ingesterSendChunksClient) CloseAndRecv() (*SendChunksResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(SendChunksResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *ingesterClient) GetChunks(ctx context.Context, in *GetChunksRequest, opts ...grpc.CallOption) (Ingester_GetChunksClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Ingester_serviceDesc.Streams[4], "/cortex.Ingester/GetChunks", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &ingesterGetChunksClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Ingester_GetChunksClient interface {
+	Recv() (*TimeSeriesChunk, error)
+	grpc.ClientStream
+}
+
+type ingesterGetChunksClient struct {
+	grpc.ClientStream
+}
+
+func (x *ingesterGetChunksClient) Recv() (*TimeSeriesChunk, error) {
+	m := new(TimeSeriesChunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *ingesterClient) BlockTokenRange(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (*BlockRangeResponse, error) {
+	out := new(BlockRangeResponse)
+	err := c.cc.Invoke(ctx, "/cortex.Ingester/BlockTokenRange", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *ingesterClient) UnblockTokenRange(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (*UnblockRangeResponse, error) {
+	out := new(UnblockRangeResponse)
+	err := c.cc.Invoke(ctx, "/cortex.Ingester/UnblockTokenRange", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IngesterServer is the server API for Ingester service.
 type IngesterServer interface {
 	Push(context.Context, *WriteRequest) (*WriteResponse, error)
@@ -2923,10 +3518,19 @@ type IngesterServer interface {
 	UserStats(context.Context, *UserStatsRequest) (*UserStatsResponse, error)
 	AllUserStats(context.Context, *UserStatsRequest) (*UsersStatsResponse, error)
 	MetricsForLabelMatchers(context.Context, *MetricsForLabelMatchersRequest) (*MetricsForLabelMatchersResponse, error)
-	// TransferChunks allows leaving ingester (client) to stream chunks directly to joining ingesters (server).
+	// TransferChunks allows leaving ingester (client) to stream chunks directly
+	// to joining ingesters (server). Called during the hand-off process.
 	TransferChunks(Ingester_TransferChunksServer) error
 	// TransferTSDB transfers all files of a tsdb to a joining ingester
 	TransferTSDB(Ingester_TransferTSDBServer) error
+	// SendChunks is invoked by a leaving ingester (client), streaming a subset
+	// of its chunks directly to an existing ingester.
+	SendChunks(Ingester_SendChunksServer) error
+	// GetChunks is invoked by a joining ingester (client). A subset of the
+	// serving ingester's chunks will be sent as a stream.
+	GetChunks(*GetChunksRequest, Ingester_GetChunksServer) error
+	BlockTokenRange(context.Context, *RangeRequest) (*BlockRangeResponse, error)
+	UnblockTokenRange(context.Context, *RangeRequest) (*UnblockRangeResponse, error)
 }
 
 func RegisterIngesterServer(s *grpc.Server, srv IngesterServer) {
@@ -3132,6 +3736,89 @@ func (x *ingesterTransferTSDBServer) Recv() (*TimeSeriesFile, error) {
 	return m, nil
 }
 
+func _Ingester_SendChunks_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(IngesterServer).SendChunks(&ingesterSendChunksServer{stream})
+}
+
+type Ingester_SendChunksServer interface {
+	SendAndClose(*SendChunksResponse) error
+	Recv() (*TimeSeriesChunk, error)
+	grpc.ServerStream
+}
+
+type ingesterSendChunksServer struct {
+	grpc.ServerStream
+}
+
+func (x *ingesterSendChunksServer) SendAndClose(m *SendChunksResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *ingesterSendChunksServer) Recv() (*TimeSeriesChunk, error) {
+	m := new(TimeSeriesChunk)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _Ingester_GetChunks_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetChunksRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(IngesterServer).GetChunks(m, &ingesterGetChunksServer{stream})
+}
+
+type Ingester_GetChunksServer interface {
+	Send(*TimeSeriesChunk) error
+	grpc.ServerStream
+}
+
+type ingesterGetChunksServer struct {
+	grpc.ServerStream
+}
+
+func (x *ingesterGetChunksServer) Send(m *TimeSeriesChunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Ingester_BlockTokenRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RangeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IngesterServer).BlockTokenRange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortex.Ingester/BlockTokenRange",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IngesterServer).BlockTokenRange(ctx, req.(*RangeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Ingester_UnblockTokenRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RangeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IngesterServer).UnblockTokenRange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortex.Ingester/UnblockTokenRange",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IngesterServer).UnblockTokenRange(ctx, req.(*RangeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Ingester_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "cortex.Ingester",
 	HandlerType: (*IngesterServer)(nil),
@@ -3164,6 +3851,14 @@ var _Ingester_serviceDesc = grpc.ServiceDesc{
 			MethodName: "MetricsForLabelMatchers",
 			Handler:    _Ingester_MetricsForLabelMatchers_Handler,
 		},
+		{
+			MethodName: "BlockTokenRange",
+			Handler:    _Ingester_BlockTokenRange_Handler,
+		},
+		{
+			MethodName: "UnblockTokenRange",
+			Handler:    _Ingester_UnblockTokenRange_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -3180,6 +3875,16 @@ var _Ingester_serviceDesc = grpc.ServiceDesc{
 			StreamName:    "TransferTSDB",
 			Handler:       _Ingester_TransferTSDB_Handler,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "SendChunks",
+			Handler:       _Ingester_SendChunks_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "GetChunks",
+			Handler:       _Ingester_GetChunks_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "cortex.proto",
@@ -3862,6 +4567,164 @@ func (m *TimeSeries) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *SendChunksResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SendChunksResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
+func (m *GetChunksRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetChunksRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.FromIngesterId) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintCortex(dAtA, i, uint64(len(m.FromIngesterId)))
+		i += copy(dAtA[i:], m.FromIngesterId)
+	}
+	if len(m.Ranges) > 0 {
+		for _, msg := range m.Ranges {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintCortex(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.Move {
+		dAtA[i] = 0x18
+		i++
+		if m.Move {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	return i, nil
+}
+
+func (m *TokenRange) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TokenRange) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.StartRange != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintCortex(dAtA, i, uint64(m.StartRange))
+	}
+	if m.EndRange != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintCortex(dAtA, i, uint64(m.EndRange))
+	}
+	return i, nil
+}
+
+func (m *RangeRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RangeRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Ranges) > 0 {
+		for _, msg := range m.Ranges {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintCortex(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
+func (m *BlockRangeResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *BlockRangeResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
+func (m *UnblockRangeResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UnblockRangeResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
 func (m *LabelPair) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -4430,6 +5293,85 @@ func (m *TimeSeries) Size() (n int) {
 	return n
 }
 
+func (m *SendChunksResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *GetChunksRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.FromIngesterId)
+	if l > 0 {
+		n += 1 + l + sovCortex(uint64(l))
+	}
+	if len(m.Ranges) > 0 {
+		for _, e := range m.Ranges {
+			l = e.Size()
+			n += 1 + l + sovCortex(uint64(l))
+		}
+	}
+	if m.Move {
+		n += 2
+	}
+	return n
+}
+
+func (m *TokenRange) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.StartRange != 0 {
+		n += 1 + sovCortex(uint64(m.StartRange))
+	}
+	if m.EndRange != 0 {
+		n += 1 + sovCortex(uint64(m.EndRange))
+	}
+	return n
+}
+
+func (m *RangeRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Ranges) > 0 {
+		for _, e := range m.Ranges {
+			l = e.Size()
+			n += 1 + l + sovCortex(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *BlockRangeResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *UnblockRangeResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
 func (m *LabelPair) Size() (n int) {
 	if m == nil {
 		return 0
@@ -4779,6 +5721,66 @@ func (this *TimeSeries) String() string {
 		`Labels:` + fmt.Sprintf("%v", this.Labels) + `,`,
 		`Samples:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Samples), "Sample", "Sample", 1), `&`, ``, 1) + `,`,
 		`Token:` + fmt.Sprintf("%v", this.Token) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *SendChunksResponse) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&SendChunksResponse{`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *GetChunksRequest) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&GetChunksRequest{`,
+		`FromIngesterId:` + fmt.Sprintf("%v", this.FromIngesterId) + `,`,
+		`Ranges:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Ranges), "TokenRange", "TokenRange", 1), `&`, ``, 1) + `,`,
+		`Move:` + fmt.Sprintf("%v", this.Move) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *TokenRange) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&TokenRange{`,
+		`StartRange:` + fmt.Sprintf("%v", this.StartRange) + `,`,
+		`EndRange:` + fmt.Sprintf("%v", this.EndRange) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *RangeRequest) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&RangeRequest{`,
+		`Ranges:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Ranges), "TokenRange", "TokenRange", 1), `&`, ``, 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *BlockRangeResponse) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&BlockRangeResponse{`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *UnblockRangeResponse) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&UnblockRangeResponse{`,
 		`}`,
 	}, "")
 	return s
@@ -6902,6 +7904,482 @@ func (m *TimeSeries) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCortex(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SendChunksResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCortex
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SendChunksResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SendChunksResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCortex(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetChunksRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCortex
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetChunksRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetChunksRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FromIngesterId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCortex
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCortex
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.FromIngesterId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ranges", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCortex
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCortex
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Ranges = append(m.Ranges, TokenRange{})
+			if err := m.Ranges[len(m.Ranges)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Move", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCortex
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Move = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCortex(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TokenRange) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCortex
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TokenRange: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TokenRange: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StartRange", wireType)
+			}
+			m.StartRange = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCortex
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.StartRange |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EndRange", wireType)
+			}
+			m.EndRange = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCortex
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.EndRange |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCortex(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RangeRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCortex
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RangeRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RangeRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ranges", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCortex
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCortex
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Ranges = append(m.Ranges, TokenRange{})
+			if err := m.Ranges[len(m.Ranges)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCortex(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *BlockRangeResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCortex
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: BlockRangeResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: BlockRangeResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCortex(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthCortex
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UnblockRangeResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCortex
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UnblockRangeResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UnblockRangeResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCortex(dAtA[iNdEx:])
