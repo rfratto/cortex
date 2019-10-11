@@ -526,6 +526,10 @@ func (i *mockIngester) Push(ctx context.Context, req *client.WriteRequest, opts 
 		} else {
 			existing.Samples = append(existing.Samples, req.Timeseries[j].Samples...)
 		}
+
+		if req.Timeseries[j].Token == 0 {
+			return nil, fmt.Errorf("expected timeseries to have token")
+		}
 	}
 
 	return &client.WriteResponse{}, nil

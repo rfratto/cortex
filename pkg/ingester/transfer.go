@@ -88,7 +88,7 @@ func (i *Ingester) TransferChunks(stream client.Ingester_TransferChunksServer) e
 				return errors.Wrap(err, "TransferChunks: fromWireChunks")
 			}
 
-			state, fp, series, err := userStates.getOrCreateSeries(stream.Context(), wireSeries.UserId, wireSeries.Labels)
+			state, fp, series, err := userStates.getOrCreateSeries(stream.Context(), wireSeries.UserId, wireSeries.Labels, wireSeries.Token)
 			if err != nil {
 				return errors.Wrapf(err, "TransferChunks: getOrCreateSeries: user %s series %s", wireSeries.UserId, wireSeries.Labels)
 			}
@@ -420,6 +420,7 @@ func (i *Ingester) transferOut(ctx context.Context) error {
 				UserId:         userID,
 				Labels:         client.FromLabelsToLabelAdapters(pair.series.metric),
 				Chunks:         chunks,
+				Token:          pair.series.token,
 			})
 			state.fpLocker.Unlock(pair.fp)
 			if err != nil {

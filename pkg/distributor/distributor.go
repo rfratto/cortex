@@ -347,6 +347,7 @@ func (d *Distributor) Push(ctx context.Context, req *client.WriteRequest) (*clie
 			TimeSeries: &client.TimeSeries{
 				Labels:  ts.Labels,
 				Samples: samples,
+				Token:   key,
 			},
 		})
 

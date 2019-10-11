@@ -132,7 +132,8 @@ func (us *userStates) getViaContext(ctx context.Context) (*userState, bool, erro
 	return state, ok, nil
 }
 
-func (us *userStates) getOrCreateSeries(ctx context.Context, userID string, labels []client.LabelAdapter) (*userState, model.Fingerprint, *memorySeries, error) {
+func (us *userStates) getOrCreateSeries(ctx context.Context, userID string,
+	labels []client.LabelAdapter, token uint32) (*userState, model.Fingerprint, *memorySeries, error) {
 
 	state, ok := us.get(userID)
 	if !ok {
@@ -169,11 +170,11 @@ func (us *userStates) getOrCreateSeries(ctx context.Context, userID string, labe
 		state = stored.(*userState)
 	}
 
-	fp, series, err := state.getSeries(labels)
+	fp, series, err := state.getSeries(labels, token)
 	return state, fp, series, err
 }
 
-func (u *userState) getSeries(metric labelPairs) (model.Fingerprint, *memorySeries, error) {
+func (u *userState) getSeries(metric labelPairs, token uint32) (model.Fingerprint, *memorySeries, error) {
 	rawFP := client.FastFingerprint(metric)
 	u.fpLocker.Lock(rawFP)
 	fp := u.mapper.mapFP(rawFP, metric)
@@ -184,6 +185,16 @@ func (u *userState) getSeries(metric labelPairs) (model.Fingerprint, *memorySeri
 
 	series, ok := u.fpToSeries.get(fp)
 	if ok {
+		if token != series.token {
+			level.Warn(util.Logger).Log(
+				"msg", fmt.Sprintf("new token value for metric %s", metric),
+				"old_token", series.token,
+				"new_token", token,
+			)
+
+			series.token = token
+		}
+
 		return fp, series, nil
 	}
 
@@ -218,8 +229,9 @@ func (u *userState) getSeries(metric labelPairs) (model.Fingerprint, *memorySeri
 
 	labels := u.index.Add(metric, fp)
 	series = newMemorySeries(labels)
-	u.fpToSeries.put(fp, series)
+	series.token = token
 
+	u.fpToSeries.put(fp, series)
 	return fp, series, nil
 }
 

@@ -109,6 +109,7 @@ message TimeSeriesChunk {
   string user_id = 2;
   repeated LabelPair labels = 3 [(gogoproto.nullable) = false, (gogoproto.customtype) = "LabelAdapter"];
   repeated Chunk chunks = 4 [(gogoproto.nullable) = false];
+  uint32 token = 5;
 }
 
 message Chunk {
@@ -125,6 +126,9 @@ message TimeSeries {
   repeated LabelPair labels = 1 [(gogoproto.nullable) = false, (gogoproto.customtype) = "LabelAdapter"];
   // Sorted by time, oldest sample first.
   repeated Sample samples   = 2 [(gogoproto.nullable) = false];
+
+  // Token used by the distributor.
+  uint32 token = 3;
 }
 
 message LabelPair {
