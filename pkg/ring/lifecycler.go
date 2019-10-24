@@ -458,7 +458,6 @@ func (i *Lifecycler) HealthyInstancesCount() int {
 // - remove config from Consul.
 // - block until we've successfully shutdown.
 func (i *Lifecycler) Shutdown() {
-	// This will prevent us accepting any more samples
 	i.flushTransferer.StopIncomingRequests()
 
 	// closing i.quit triggers loop() to exit, which in turn will trigger

@@ -57,6 +57,10 @@ var (
 		Help: "The total number of chunks received by this ingester whilst joining",
 	})
 
+	incIgnoredSeries = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "cortex_ingester_incremental_ignored_series",
+		Help: "The total number of chunks ignored by this ingester",
+	})
 	incSentSeries = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "cortex_ingester_incremental_sent_series",
 		Help: "The total number of series sent by this ingester whilst leaving.",
@@ -77,6 +81,7 @@ func init() {
 	prometheus.MustRegister(sentFiles)
 	prometheus.MustRegister(receivedFiles)
 	prometheus.MustRegister(incSentChunks)
+	prometheus.MustRegister(incIgnoredSeries)
 	prometheus.MustRegister(incReceivedChunks)
 	prometheus.MustRegister(incSentSeries)
 	prometheus.MustRegister(incReceivedSeries)
@@ -88,10 +93,11 @@ type chunkStream interface {
 }
 
 type acceptChunksOptions struct {
-	UserStates     *userStates
-	Stream         chunkStream
-	ReceivedChunks prometheus.Counter
-	ReceivedSeries prometheus.Counter
+	UserStates            *userStates
+	Stream                chunkStream
+	ReceivedChunks        prometheus.Counter
+	ReceivedSeries        prometheus.Counter
+	ValidateRemoteLeaving bool
 }
 
 func (i *Ingester) acceptChunks(opts acceptChunksOptions) (fromIngesterID string, seriesReceived int, err error) {
@@ -110,26 +116,46 @@ func (i *Ingester) acceptChunks(opts acceptChunksOptions) (fromIngesterID string
 		if fromIngesterID == "" {
 			fromIngesterID = wireSeries.FromIngesterId
 			level.Info(util.Logger).Log("msg", "processing TransferChunks request", "from_ingester", fromIngesterID)
-
+		}
+		if opts.ValidateRemoteLeaving {
 			// Before transfer, make sure 'from' ingester is in correct state to call ClaimTokensFor later.
 			err := i.checkFromIngesterIsInLeavingState(opts.Stream.Context(), fromIngesterID)
 			if err != nil {
 				return fromIngesterID, seriesReceived, err
 			}
 		}
+
 		descs, err := fromWireChunks(wireSeries.Chunks)
 		if err != nil {
 			return fromIngesterID, seriesReceived, err
 		}
 
-		state, fp, series, err := opts.UserStates.getOrCreateSeries(opts.Stream.Context(), wireSeries.UserId, wireSeries.Labels, wireSeries.Token)
+		state, fp, series, newSeries, err := opts.UserStates.getOrCreateSeries(opts.Stream.Context(), wireSeries.UserId, wireSeries.Labels, wireSeries.Token)
 		if err != nil {
 			return fromIngesterID, seriesReceived, err
 		}
 
+		if i.cfg.TokenCheckerConfig.CheckOnTransfer {
+			if ok := i.tokenChecker.CheckToken(wireSeries.Token); !ok {
+				level.Warn(util.Logger).Log(
+					"msg", "unexpected token transferred to ingester",
+					"token", wireSeries.Token,
+				)
+				i.metrics.unexpectedSeriesTotal.WithLabelValues("transfer").Inc()
+			}
+		}
+
 		prevNumChunks := len(series.chunkDescs)
 
-		err = series.setChunks(descs, true)
+		if newSeries {
+			// Make sure we don't accidentally overwrite data we didn't receive
+			// by only accepting writes to series that we don't currently have in
+			// memory.
+			err = series.setChunks(descs)
+		} else {
+			incIgnoredSeries.Inc()
+		}
+
 		state.fpLocker.Unlock(fp) // acquired in getOrCreateSeries
 		if err != nil {
 			return fromIngesterID, seriesReceived, err
@@ -227,9 +253,10 @@ func (i *Ingester) TransferChunks(stream client.Ingester_TransferChunksServer) e
 		userStates := newUserStates(i.limiter, i.cfg)
 
 		fromIngesterID, seriesReceived, err := i.acceptChunks(acceptChunksOptions{
-			UserStates:     userStates,
-			Stream:         stream,
-			ReceivedChunks: receivedChunks,
+			UserStates:            userStates,
+			Stream:                stream,
+			ReceivedChunks:        receivedChunks,
+			ValidateRemoteLeaving: true,
 		})
 		if err != nil {
 			return err

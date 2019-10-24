@@ -202,8 +202,8 @@ func (s *memorySeries) samplesForRange(from, through model.Time) ([]model.Sample
 	return values, nil
 }
 
-func (s *memorySeries) setChunks(descs []*desc, override bool) error {
-	if len(s.chunkDescs) != 0 && !override {
+func (s *memorySeries) setChunks(descs []*desc) error {
+	if len(s.chunkDescs) != 0 {
 		return fmt.Errorf("series already has chunks")
 	}
 

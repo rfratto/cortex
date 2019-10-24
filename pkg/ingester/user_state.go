@@ -133,7 +133,7 @@ func (us *userStates) getViaContext(ctx context.Context) (*userState, bool, erro
 }
 
 func (us *userStates) getOrCreateSeries(ctx context.Context, userID string,
-	labels []client.LabelAdapter, token uint32) (*userState, model.Fingerprint, *memorySeries, error) {
+	labels []client.LabelAdapter, token uint32) (*userState, model.Fingerprint, *memorySeries, bool, error) {
 
 	state, ok := us.get(userID)
 	if !ok {
@@ -170,11 +170,11 @@ func (us *userStates) getOrCreateSeries(ctx context.Context, userID string,
 		state = stored.(*userState)
 	}
 
-	fp, series, err := state.getSeries(labels, token)
-	return state, fp, series, err
+	fp, series, newSeries, err := state.getSeries(labels, token)
+	return state, fp, series, newSeries, err
 }
 
-func (u *userState) getSeries(metric labelPairs, token uint32) (model.Fingerprint, *memorySeries, error) {
+func (u *userState) getSeries(metric labelPairs, token uint32) (model.Fingerprint, *memorySeries, bool, error) {
 	rawFP := client.FastFingerprint(metric)
 	u.fpLocker.Lock(rawFP)
 	fp := u.mapper.mapFP(rawFP, metric)
@@ -195,7 +195,7 @@ func (u *userState) getSeries(metric labelPairs, token uint32) (model.Fingerprin
 			series.token = token
 		}
 
-		return fp, series, nil
+		return fp, series, false, nil
 	}
 
 	// There's theoretically a relatively harmless race here if multiple
@@ -207,13 +207,13 @@ func (u *userState) getSeries(metric labelPairs, token uint32) (model.Fingerprin
 	if err != nil {
 		u.fpLocker.Unlock(fp)
 		u.discardedSamples.WithLabelValues(perUserSeriesLimit).Inc()
-		return fp, nil, httpgrpc.Errorf(http.StatusTooManyRequests, err.Error())
+		return fp, nil, true, httpgrpc.Errorf(http.StatusTooManyRequests, err.Error())
 	}
 
 	metricName, err := extract.MetricNameFromLabelAdapters(metric)
 	if err != nil {
 		u.fpLocker.Unlock(fp)
-		return fp, nil, err
+		return fp, nil, true, err
 	}
 
 	// Check if the per-metric limit has been exceeded
@@ -221,7 +221,7 @@ func (u *userState) getSeries(metric labelPairs, token uint32) (model.Fingerprin
 	if err != nil {
 		u.fpLocker.Unlock(fp)
 		u.discardedSamples.WithLabelValues(perMetricSeriesLimit).Inc()
-		return fp, nil, httpgrpc.Errorf(http.StatusTooManyRequests, "%s for: %s", err.Error(), metric)
+		return fp, nil, true, httpgrpc.Errorf(http.StatusTooManyRequests, "%s for: %s", err.Error(), metric)
 	}
 
 	u.memSeriesCreatedTotal.Inc()
@@ -230,9 +230,8 @@ func (u *userState) getSeries(metric labelPairs, token uint32) (model.Fingerprin
 	labels := u.index.Add(metric, fp)
 	series = newMemorySeries(labels)
 	series.token = token
-
 	u.fpToSeries.put(fp, series)
-	return fp, series, nil
+	return fp, series, true, nil
 }
 
 func (u *userState) canAddSeriesFor(metric string) error {

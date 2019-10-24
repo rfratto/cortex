@@ -73,6 +73,7 @@ require (
 	github.com/weaveworks/promrus v1.2.0 // indirect
 	go.etcd.io/bbolt v1.3.3
 	go.etcd.io/etcd v0.0.0-20190709142735-eb7dd97135a5
+	go.uber.org/atomic v1.4.0
 	go.uber.org/zap v1.10.0 // indirect
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4

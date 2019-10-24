@@ -43,6 +43,11 @@ func testLifecyclerConfig(ringConfig Config, id string) LifecyclerConfig {
 	return lifecyclerConfig
 }
 
+func checkInRing(d interface{}, id string) bool {
+	desc, ok := d.(*Desc)
+	return ok && desc.Ingesters[id].State == ACTIVE
+}
+
 func checkDenormalised(d interface{}, id string) bool {
 	desc, ok := d.(*Desc)
 	return ok &&

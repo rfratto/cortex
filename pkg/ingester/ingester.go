@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,13 +38,15 @@ const (
 )
 
 type ingesterMetrics struct {
-	flushQueueLength    prometheus.Gauge
-	ingestedSamples     prometheus.Counter
-	ingestedSamplesFail prometheus.Counter
-	queries             prometheus.Counter
-	queriedSamples      prometheus.Histogram
-	queriedSeries       prometheus.Histogram
-	queriedChunks       prometheus.Histogram
+	flushQueueLength      prometheus.Gauge
+	ingestedSamples       prometheus.Counter
+	ingestedSamplesFail   prometheus.Counter
+	queries               prometheus.Counter
+	queriedSamples        prometheus.Histogram
+	queriedSeries         prometheus.Histogram
+	queriedChunks         prometheus.Histogram
+	unexpectedSeries      prometheus.Gauge
+	unexpectedSeriesTotal *prometheus.CounterVec
 }
 
 func newIngesterMetrics(r prometheus.Registerer) *ingesterMetrics {
@@ -81,6 +85,16 @@ func newIngesterMetrics(r prometheus.Registerer) *ingesterMetrics {
 			// A small number of chunks per series - 10*(8^(7-1)) = 2.6m.
 			Buckets: prometheus.ExponentialBuckets(10, 8, 7),
 		}),
+		unexpectedSeries: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: "cortex",
+			Name:      "ingester_unexpected_series",
+			Help:      "Current number of unexpected series found in the ingester.",
+		}),
+		unexpectedSeriesTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "cortex",
+			Name:      "ingester_unexpected_series_total",
+			Help:      "Total number of unexpected series found.",
+		}, []string{"source"}),
 	}
 
 	if r != nil {
@@ -92,6 +106,8 @@ func newIngesterMetrics(r prometheus.Registerer) *ingesterMetrics {
 			m.queriedSamples,
 			m.queriedSeries,
 			m.queriedChunks,
+			m.unexpectedSeries,
+			m.unexpectedSeriesTotal,
 		)
 	}
 
@@ -100,7 +116,8 @@ func newIngesterMetrics(r prometheus.Registerer) *ingesterMetrics {
 
 // Config for an Ingester.
 type Config struct {
-	LifecyclerConfig ring.LifecyclerConfig `yaml:"lifecycler,omitempty"`
+	LifecyclerConfig   ring.LifecyclerConfig   `yaml:"lifecycler,omitempty"`
+	TokenCheckerConfig ring.TokenCheckerConfig `yaml:"token_checker,omitempty"`
 
 	// Config for transferring chunks.
 	MaxTransferRetries int           `yaml:"max_transfer_retries,omitempty"`
@@ -134,6 +151,7 @@ type Config struct {
 // RegisterFlags adds the flags required to config this to the given FlagSet
 func (cfg *Config) RegisterFlags(f *flag.FlagSet) {
 	cfg.LifecyclerConfig.RegisterFlags(f)
+	cfg.TokenCheckerConfig.RegisterFlags(f)
 
 	f.IntVar(&cfg.MaxTransferRetries, "ingester.max-transfer-retries", 10, "Number of times to try and transfer chunks before falling back to flushing.")
 	f.DurationVar(&cfg.RangeBlockPeriod, "ingester.range-block-period", 1*time.Minute, "Period after which write blocks on ranges expire.")
@@ -157,10 +175,11 @@ type Ingester struct {
 
 	metrics *ingesterMetrics
 
-	chunkStore ChunkStore
-	lifecycler *ring.Lifecycler
-	limits     *validation.Overrides
-	limiter    *SeriesLimiter
+	chunkStore   ChunkStore
+	lifecycler   *ring.Lifecycler
+	tokenChecker *ring.TokenChecker
+	limits       *validation.Overrides
+	limiter      *SeriesLimiter
 
 	quit chan struct{}
 	done sync.WaitGroup
@@ -222,6 +241,11 @@ func New(cfg Config, clientConfig client.Config, limits *validation.Overrides, c
 
 	// Now that user states have been created, we can start the lifecycler
 	i.lifecycler.Start()
+	i.tokenChecker, err = ring.NewTokenChecker(cfg.TokenCheckerConfig, i.lifecycler)
+	if err != nil {
+		return nil, err
+	}
+	i.tokenChecker.UnexpectedTokenHandler = i.unexpectedTokenHandler
 
 	i.flushQueuesDone.Add(cfg.ConcurrentFlushes)
 	for j := 0; j < cfg.ConcurrentFlushes; j++ {
@@ -266,6 +290,11 @@ func (i *Ingester) Shutdown() {
 
 	// Next initiate our graceful exit from the ring.
 	i.lifecycler.Shutdown()
+
+	// Shut down the token checker. Nil when using TSDB.
+	if i.tokenChecker != nil {
+		i.tokenChecker.Shutdown()
+	}
 }
 
 // StopIncomingRequests is called during the shutdown process.
@@ -373,10 +402,28 @@ func (i *Ingester) append(ctx context.Context, userID string, token uint32, labe
 		return err
 	}
 
-	state, fp, series, err := i.userStates.getOrCreateSeries(ctx, userID, labels, token)
+	state, fp, series, newSeries, err := i.userStates.getOrCreateSeries(ctx, userID, labels, token)
 	if err != nil {
 		state = nil // don't want to unlock the fp if there is an error
 		return err
+	}
+
+	if newSeries && i.cfg.TokenCheckerConfig.CheckOnCreate {
+		if ok := i.tokenChecker.CheckToken(token); !ok {
+			level.Warn(util.Logger).Log(
+				"msg", "unexpected stream created in ingester",
+				"token", token,
+			)
+			i.metrics.unexpectedSeriesTotal.WithLabelValues("create").Inc()
+		}
+	} else if i.cfg.TokenCheckerConfig.CheckOnAppend {
+		if ok := i.tokenChecker.CheckToken(token); !ok {
+			level.Warn(util.Logger).Log(
+				"msg", "unexpected stream appended in ingester",
+				"token", token,
+			)
+			i.metrics.unexpectedSeriesTotal.WithLabelValues("append").Inc()
+		}
 	}
 
 	prevNumChunks := len(series.chunkDescs)
@@ -704,4 +751,26 @@ func (i *Ingester) ReadinessHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.Error(w, "Not ready: "+err.Error(), http.StatusServiceUnavailable)
 	}
+}
+
+func (i *Ingester) unexpectedTokenHandler(tokens []uint32) {
+	i.metrics.unexpectedSeries.Set(float64(len(tokens)))
+	if len(tokens) == 0 {
+		return
+	}
+
+	// Cut list of invalid tokens to first 20
+	if len(tokens) > 20 {
+		tokens = tokens[:20]
+	}
+
+	tokenStr := make([]string, len(tokens))
+	for i, tok := range tokens {
+		tokenStr[i] = strconv.FormatUint(uint64(tok), 10)
+	}
+
+	level.Debug(util.Logger).Log(
+		"msg", "unexpected tokens found",
+		"tokens", strings.Join(tokenStr, ", "),
+	)
 }
