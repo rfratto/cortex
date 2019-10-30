@@ -3,7 +3,6 @@ package ring
 import (
 	"context"
 	"fmt"
-	"math"
 	"sync"
 	"testing"
 	"time"
@@ -422,9 +421,9 @@ func TestFindTransferWorkload(t *testing.T) {
 			tokenIdx:    0, // A+
 			replication: 3,
 			expect: transferWorkload{
-				"B": []TokenRange{{6, 7}},                      // transfer FG from B
-				"C": []TokenRange{{7, 8}},                      // transfer GH from C
-				"D": []TokenRange{{8, math.MaxUint32}, {0, 1}}, // transfer HA from D
+				"B": []TokenRange{{6, 7}}, // transfer FG from B
+				"C": []TokenRange{{7, 8}}, // transfer GH from C
+				"D": []TokenRange{{8, 1}}, // transfer HA from D
 			},
 		},
 
@@ -548,7 +547,7 @@ func TestFindTransferWorkload(t *testing.T) {
 			tokenIdx:    0, // A1+
 			replication: 1,
 			expect: transferWorkload{
-				"B": []TokenRange{{4, math.MaxUint32}, {0, 1}}, // Transfer B2 A1+ from B
+				"B": []TokenRange{{4, 1}}, // Transfer B2 A1+ from B
 			},
 		},
 

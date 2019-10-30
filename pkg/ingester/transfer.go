@@ -846,6 +846,8 @@ func (i *Ingester) GetChunks(req *client.GetChunksRequest, stream client.Ingeste
 		return nil
 	}
 
+	ranges := makeRingRanges(req.Ranges)
+
 	sent, err := i.pushChunks(pushChunksOptions{
 		States:        userStatesCopy,
 		Stream:        stream,
@@ -854,16 +856,7 @@ func (i *Ingester) GetChunks(req *client.GetChunksRequest, stream client.Ingeste
 		SentSeries:    incSentSeries,
 
 		Filter: func(pair *fingerprintSeriesPair) bool {
-			token := pair.series.token
-
-			inRange := false
-			for _, rg := range req.Ranges {
-				if token >= rg.StartRange && token < rg.EndRange {
-					inRange = true
-					break
-				}
-			}
-			return !inRange
+			return !inAnyRange(pair.series.token, ranges)
 		},
 	})
 	if err != nil {
@@ -1066,16 +1059,7 @@ func (i *Ingester) SendChunkRanges(ctx context.Context, ranges []ring.TokenRange
 		SentSeries:    incSentSeries,
 
 		Filter: func(pair *fingerprintSeriesPair) bool {
-			token := pair.series.token
-
-			inRange := false
-			for _, rg := range ranges {
-				if token >= rg.From && token < rg.To {
-					inRange = true
-					break
-				}
-			}
-			return !inRange
+			return !inAnyRange(pair.series.token, ranges)
 		},
 	})
 	if err != nil {
@@ -1191,4 +1175,13 @@ func makeProtoRanges(ranges []ring.TokenRange) []client.TokenRange {
 		}
 	}
 	return ret
+}
+
+func inAnyRange(tok uint32, ranges []ring.TokenRange) bool {
+	for _, rg := range ranges {
+		if rg.Contains(tok) {
+			return true
+		}
+	}
+	return false
 }

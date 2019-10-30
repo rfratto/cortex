@@ -373,7 +373,7 @@ func (i *Ingester) checkToken(token uint32) error {
 	defer i.blockedTokenMtx.RUnlock()
 
 	for _, rg := range i.blockedTokens {
-		if token >= rg.From && token < rg.To {
+		if rg.Contains(token) {
 			return httpgrpc.Errorf(http.StatusPreconditionFailed, "transfer in progress")
 		}
 	}

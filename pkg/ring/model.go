@@ -837,6 +837,9 @@ func (d *Desc) InRange(opts RangeOptions) bool {
 			IsHealthyState(&startIng, startTok.State, opts.Op, opts.MaxHeartbeat)
 	}
 
+	end := d.search(opts.Range.To)
+	endTok := d.Tokens[end]
+
 	idx := start
 	for {
 		idx++
@@ -846,7 +849,7 @@ func (d *Desc) InRange(opts RangeOptions) bool {
 
 		if idx == start {
 			break
-		} else if tok.Token >= opts.Range.To || tok.Token <= opts.Range.From {
+		} else if tok.Token == endTok.Token {
 			break
 		} else if tok.Ingester == opts.ID {
 			ing := d.Ingesters[tok.Ingester]

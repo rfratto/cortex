@@ -3,7 +3,6 @@ package ring
 import (
 	"context"
 	"flag"
-	"math"
 	"sync"
 	"time"
 
@@ -111,7 +110,7 @@ func (tc *TokenChecker) CheckToken(token uint32) bool {
 	defer tc.mut.Unlock()
 
 	for _, rg := range tc.expectedRanges {
-		if token >= rg.From && token < rg.To {
+		if rg.Contains(token) {
 			return true
 		}
 	}
@@ -219,21 +218,6 @@ func (tc *TokenChecker) updateExpectedRanges() {
 					"start_range", startRange.Token,
 					"end_range", endRange.Token,
 				)
-
-				// Wraps around ring
-				if startRange.Token > endRange.Token {
-					expected = append(expected, TokenRange{
-						From: startRange.Token,
-						To:   math.MaxUint32,
-					})
-
-					expected = append(expected, TokenRange{
-						From: 0,
-						To:   endRange.Token,
-					})
-
-					continue
-				}
 
 				expected = append(expected, TokenRange{
 					From: startRange.Token,

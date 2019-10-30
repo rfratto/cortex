@@ -134,6 +134,17 @@ type TokenRange struct {
 	To   uint32
 }
 
+// Contains indicates that a key falls within a given range.
+func (r TokenRange) Contains(key uint32) bool {
+	if r.From > r.To {
+		// Wraps around the ring. It's in the range as long as the
+		// key is in the range of [from, 2<<32-1] or [0, to).
+		return key >= r.From || key < r.To
+	}
+
+	return key >= r.From && key < r.To
+}
+
 // IncrementalTransferer controls partial transfer of chunks as the tokens in a
 // ring grows or shrinks.
 type IncrementalTransferer interface {
@@ -1038,104 +1049,28 @@ func (i *Lifecycler) findTransferWorkload(d *Desc, token StatefulToken) (transfe
 			// which we do by checking two ranges: [endRange, token) and
 			// (token, target].
 
-			ranges := []RangeOptions{}
+			lhsRange := RangeOptions{
+				Range: TokenRange{From: endRange.Token, To: token.Token},
 
-			if endRange.Token > token.Token {
-				// Wrapped around ring. Check both [endRange, math.MaxUint32] and
-				// [0, token).
-				ranges = append(ranges, RangeOptions{
-					Range: TokenRange{
-						From: endRange.Token,
-						To:   math.MaxUint32,
-					},
-					ID:             i.ID,
-					Op:             op,
-					LeftInclusive:  true,
-					RightInclusive: true,
-				}, RangeOptions{
-					Range: TokenRange{
-						From: 0,
-						To:   token.Token,
-					},
-					ID:            i.ID,
-					Op:            op,
-					LeftInclusive: true,
-				})
-			} else {
-				ranges = append(ranges, RangeOptions{
-					Range: TokenRange{
-						From: endRange.Token,
-						To:   token.Token,
-					},
-					ID:            i.ID,
-					Op:            op,
-					LeftInclusive: true,
-				})
+				ID:            i.ID,
+				Op:            op,
+				LeftInclusive: true,
+				MaxHeartbeat:  i.cfg.RingConfig.HeartbeatTimeout,
+			}
+			rhsRange := RangeOptions{
+				Range: TokenRange{From: token.Token, To: target.Token},
+
+				ID:             i.ID,
+				Op:             op,
+				RightInclusive: true,
+				MaxHeartbeat:   i.cfg.RingConfig.HeartbeatTimeout,
 			}
 
-			if target.Token < token.Token {
-				// Wrapped around ring. Check both (token, math.MaxUint32] and
-				// [0, target].
-				ranges = append(ranges, RangeOptions{
-					Range: TokenRange{
-						From: token.Token,
-						To:   math.MaxUint32,
-					},
-					ID:             i.ID,
-					Op:             op,
-					RightInclusive: true,
-				}, RangeOptions{
-					Range: TokenRange{
-						From: 0,
-						To:   target.Token,
-					},
-					ID:             i.ID,
-					Op:             op,
-					LeftInclusive:  true,
-					RightInclusive: true,
-				})
-			} else {
-				ranges = append(ranges, RangeOptions{
-					Range: TokenRange{
-						From: token.Token,
-						To:   target.Token,
-					},
-					ID:             i.ID,
-					Op:             op,
-					RightInclusive: true,
-				})
-			}
-
-			inRange := false
-			for _, opts := range ranges {
-				opts.MaxHeartbeat = i.cfg.RingConfig.HeartbeatTimeout
-				if d.InRange(opts) {
-					inRange = true
-					break
-				}
-			}
-			if inRange {
+			if d.InRange(lhsRange) || d.InRange(rhsRange) {
 				continue
 			}
 
 			addr := d.Ingesters[target.Ingester].Addr
-
-			// Handle looping around the ring by splitting into
-			// two ranges.
-			if startRange.Token > endRange.Token {
-				ret[addr] = append(ret[addr], TokenRange{
-					From: startRange.Token,
-					To:   math.MaxUint32,
-				})
-
-				ret[addr] = append(ret[addr], TokenRange{
-					From: 0,
-					To:   endRange.Token,
-				})
-
-				continue
-			}
-
 			ret[addr] = append(ret[addr], TokenRange{
 				From: startRange.Token,
 				To:   endRange.Token,
