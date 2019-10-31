@@ -184,7 +184,7 @@ func (tc *TokenChecker) updateExpectedRanges() {
 		for replica := 0; replica < tc.lifecycler.cfg.RingConfig.ReplicationFactor; replica++ {
 			endRanges, err := tc.ring.Predecessors(NeighborOptions{
 				Start:        tok,
-				Neighbor:     replica,
+				Offset:       replica,
 				Op:           Read,
 				IncludeStart: true,
 				MaxHeartbeat: tc.lifecycler.cfg.RingConfig.HeartbeatTimeout,
@@ -200,7 +200,7 @@ func (tc *TokenChecker) updateExpectedRanges() {
 			for _, endRange := range endRanges {
 				startRange, err := tc.ring.Successor(NeighborOptions{
 					Start:        endRange.StatefulToken(),
-					Neighbor:     -1,
+					Offset:       -1,
 					Op:           Read,
 					MaxHeartbeat: tc.lifecycler.cfg.RingConfig.HeartbeatTimeout,
 				})

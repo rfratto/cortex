@@ -32,6 +32,13 @@ func (ts ByToken) Len() int           { return len(ts) }
 func (ts ByToken) Swap(i, j int)      { ts[i], ts[j] = ts[j], ts[i] }
 func (ts ByToken) Less(i, j int) bool { return ts[i].Token < ts[j].Token }
 
+// byUint32 is a sortable list of uint32
+type byUint32 []uint32
+
+func (ns byUint32) Len() int           { return len(ns) }
+func (ns byUint32) Swap(i, j int)      { ns[i], ns[j] = ns[j], ns[i] }
+func (ns byUint32) Less(i, j int) bool { return ns[i] < ns[j] }
+
 // ProtoDescFactory makes new Descs
 func ProtoDescFactory() proto.Message {
 	return NewDesc()
@@ -78,6 +85,7 @@ func (d *Desc) AddToken(id string, token StatefulToken, normaliseTokens bool) {
 			if token.State != ACTIVE {
 				ingester.InactiveTokens[token.Token] = token.State
 			}
+			sort.Sort(byUint32(ingester.Tokens))
 		}
 	} else {
 		found := false
@@ -647,42 +655,41 @@ func (d *Desc) search(key uint32) int {
 	return i
 }
 
-// NeighborOptions holds options to configure how a ring
-// will be searched for predecessors or successors.
+// NeighborOptions holds options to configure how a ring will be searched for
+// predecessors or successors.
 type NeighborOptions struct {
 	// Start is the starting token to search from.
 	Start StatefulToken
 
-	// Neighbor is the number neighbor to search for.
-	// For example, a Neighbor value of 1 means to
-	// search for the first successor to Start.
-	Neighbor int
+	// Offset is the relative index of the neighbor to search for. 1 represents the
+	// first healthy neighbor clockwise in the ring, while -1 represents the first
+	// healthy neighbor counterclockwise in the ring. An offset of 0 refers to the
+	// starting token.
+	Offset int
 
-	// Op is the operation for which the search is
-	// being performed.
+	// Op is the operation for which the search is being performed.
 	Op Operation
 
-	// IncludeStart determines whether or not the
-	// token defined by Start should be counted as one of the
-	// unique ingesters.
+	// IncludeStart determines whether or not the token defined by Start should be
+	// counted as one of the unique ingesters.
 	IncludeStart bool
 
 	// MaxHeartbeat is the maximum heartbeat age to consider an ingester healthy.
 	MaxHeartbeat time.Duration
 }
 
-// Predecessors is a function that acts similarly to Successor but
-// searches the ring in counter-clockwise order. Unlike calling Successor,
-// Predecessors returns multiple tokens: Predecessors is the equivalent of
-// finding all tokens of which tok is successor n to.
+// Predecessors is a function that acts similarly to Successor but searches
+// the ring in counter-clockwise order. Unlike calling Successor, Predecessors
+// returns multiple tokens: Predecessors is the equivalent of finding all
+// tokens of which tok is successor n to.
 func (d *Desc) Predecessors(opts NeighborOptions) ([]TokenDesc, error) {
 	idx := d.search(opts.Start.Token)
 	if len(d.Tokens) == 0 || d.Tokens[idx].Token != opts.Start.Token {
 		return nil, fmt.Errorf("could not find token %d in ring", opts.Start.Token)
 	}
-	if opts.Neighbor == 0 {
+	if opts.Offset == 0 {
 		return []TokenDesc{d.Tokens[idx]}, nil
-	} else if opts.Neighbor < 0 {
+	} else if opts.Offset < 0 {
 		return nil, errors.New("Predecessors may only be called with a positive Neighbor value")
 	}
 
@@ -705,7 +712,7 @@ func (d *Desc) Predecessors(opts NeighborOptions) ([]TokenDesc, error) {
 
 		succ, err := d.Successor(NeighborOptions{
 			Start:        t.StatefulToken(),
-			Neighbor:     opts.Neighbor,
+			Offset:       opts.Offset,
 			Op:           opts.Op,
 			MaxHeartbeat: opts.MaxHeartbeat,
 			IncludeStart: true,
@@ -720,7 +727,7 @@ func (d *Desc) Predecessors(opts NeighborOptions) ([]TokenDesc, error) {
 	return predecessors, nil
 }
 
-// Successor moves around the ring to find the nth neighbors of tok.
+// Successor moves around the ring to find a neighbor of opts.Start.
 // The healthiness of the ingester and the state of the token defines
 // which tokens are considered as successors.
 //
@@ -729,19 +736,20 @@ func (d *Desc) Predecessors(opts NeighborOptions) ([]TokenDesc, error) {
 // argument will not be considered as a neighbor (i.e., it will act
 // as if we've already seen it).
 //
-// If Successor is called with a positive opts.Neighbor value, Successor
-// searches the ring clockwise. Otherwise, if called with a negative value,
-// Successor searches the ring counter-clockwise.
+// If opts.Offset has a positive value, Successor searches the ring
+// clockwise. Otherwise, if opts.Offset has a negative value, Successor
+// will search the ring counter-clockwise. An offset of 0 will return
+// the starting token.
 func (d *Desc) Successor(opts NeighborOptions) (TokenDesc, error) {
 	idx := d.search(opts.Start.Token)
 	if d.Tokens[idx].Token != opts.Start.Token {
 		return TokenDesc{}, fmt.Errorf("could not find token %d in ring", opts.Start.Token)
 	}
-	if opts.Neighbor == 0 {
+	if opts.Offset == 0 {
 		return d.Tokens[idx], nil
 	}
 
-	numSuccessors := opts.Neighbor
+	numSuccessors := opts.Offset
 	if numSuccessors < 0 {
 		numSuccessors = -numSuccessors
 	}
@@ -755,7 +763,7 @@ func (d *Desc) Successor(opts NeighborOptions) (TokenDesc, error) {
 	startIdx := idx
 
 	direction := 1
-	if opts.Neighbor < 0 {
+	if opts.Offset < 0 {
 		direction = -1
 	}
 
@@ -781,7 +789,7 @@ func (d *Desc) Successor(opts NeighborOptions) (TokenDesc, error) {
 		if IsHealthyState(&ing, successor.State, opts.Op, opts.MaxHeartbeat) {
 			successors = append(successors, successor)
 			if len(successors) == numSuccessors {
-				return successors[numSuccessors-1], nil
+				return successor, nil
 			}
 
 			distinct[successor.Ingester] = struct{}{}
@@ -789,7 +797,7 @@ func (d *Desc) Successor(opts NeighborOptions) (TokenDesc, error) {
 	}
 
 	return TokenDesc{},
-		fmt.Errorf("could not find neighbor #%d for token %d", opts.Neighbor, opts.Start.Token)
+		fmt.Errorf("could not find neighbor #%d for token %d", opts.Offset, opts.Start.Token)
 }
 
 // RangeOptions configures the search parameters of Desc.InRange.
@@ -816,10 +824,9 @@ type RangeOptions struct {
 	MaxHeartbeat time.Duration
 }
 
-// InRange checks to see if a given ingester ID (specified by
-// opts.ID) is in the range from opts.From to opts.To. The
-// inclusivity of each side of the range is determined by
-// opts.LeftInclusive and opts.RightInclusive.
+// InRange checks to see if a given ingester ID (specified by opts.ID) is in
+// the range specified by opts.Range. The inclusivity of each side of the range
+// is determined by opts.LeftInclusive and opts.RightInclusive.
 func (d *Desc) InRange(opts RangeOptions) bool {
 	var (
 		start    = d.search(opts.Range.From)

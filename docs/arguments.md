@@ -234,16 +234,26 @@ It also talks to a KVStore and has it's own copies of the same flags used by the
 
 - `-ingester.join-incremental-transfer`
 
-  Enables incrementally requesting chunks the joining ingester should own by
-  token. When enabled, the hand-over process is disabled and ingesters move out
-  of PENDING state immediately.
+  Enables incremental transfer of chunks when joining the ring. When enabled, a
+  joining ingester will insert its tokens into the ring one at a time. For each
+  token that is inserted, the ingester will request chunks from its peers.
+  The mechanism used to determine what chunks an ingester requests is based on
+  the inserted token and its position in the
+  ring.
+
+  When this flag is enabled, the hand-over process is disabled and the
+  ingester.join-after flag is ignored.
 
 - `-ingester.leave-incremental-transfer`
 
-  Enables incrementally sending chunks the leaving ingester owns to the ingester
-  that will start receiving write traffic. When enabled, takes precedence over
-  chunk flushing and disables handoff. Chunk flushes will still occur if the
-  transfer did not fully complete.
+  Enables incremental transfer of chunks when leaving the ring. When enabled, a
+  leaving ingester will remove its tokens from the ring one at a time. For each
+  token that is removed, the ingester will send chunks to its peers. The
+  mechanism used to determine what chunks an ingester sends is based on the
+  leaving token and its position in the ring.
+
+  When this flag is enabled, the hand-over process is disabled. Flushing chunks
+  will still occur to flush any data that could not be transferred.
 
 - `-ingester.normalise-tokens`
 

@@ -303,7 +303,7 @@ func TestPredecessors(t *testing.T) {
 			r := GenerateRing(t, nil, tc.desc)
 			res, err := r.Predecessors(NeighborOptions{
 				Start:        r.Tokens[tc.token].StatefulToken(),
-				Neighbor:     tc.n,
+				Offset:       tc.n,
 				Op:           tc.op,
 				IncludeStart: true,
 				MaxHeartbeat: time.Second * 3600,
@@ -360,7 +360,7 @@ func TestSuccessor(t *testing.T) {
 
 			res, err := r.Successor(NeighborOptions{
 				Start:        r.Tokens[tc.token].StatefulToken(),
-				Neighbor:     tc.n,
+				Offset:       tc.n,
 				Op:           tc.op,
 				IncludeStart: true,
 				MaxHeartbeat: time.Second * 3600,
@@ -389,7 +389,7 @@ func TestSuccessorSkipSelf(t *testing.T) {
 			r := GenerateRing(t, nil, tc.desc)
 			res, err := r.Successor(NeighborOptions{
 				Start:        r.Tokens[tc.token].StatefulToken(),
-				Neighbor:     tc.n,
+				Offset:       tc.n,
 				Op:           Read,
 				MaxHeartbeat: time.Second * 3600,
 			})

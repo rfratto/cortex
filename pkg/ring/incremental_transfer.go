@@ -11,6 +11,11 @@ import (
 	"github.com/go-kit/kit/log/level"
 )
 
+// transferWorkload is a map of target ingester addresses to the set
+// of token ranges that "affect" that target ingester. When joining
+// the ring, chunks should be requested from the target ingester
+// based on the token ranges. When leaving the ring, chunks should be
+// sent to the target ingester.
 type transferWorkload map[string][]TokenRange
 
 // findTransferWorkload will find all affected ranges by token that require
@@ -40,7 +45,7 @@ func (i *Lifecycler) findTransferWorkload(d *Desc, token StatefulToken) (transfe
 		// combinations here for which our token is the replica'th successor.
 		endRanges, err := d.Predecessors(NeighborOptions{
 			Start:        token,
-			Neighbor:     replica,
+			Offset:       replica,
 			Op:           op,
 			MaxHeartbeat: i.cfg.RingConfig.HeartbeatTimeout,
 		})
@@ -52,7 +57,7 @@ func (i *Lifecycler) findTransferWorkload(d *Desc, token StatefulToken) (transfe
 		for _, endRange := range endRanges {
 			startRange, err := d.Successor(NeighborOptions{
 				Start:        endRange.StatefulToken(),
-				Neighbor:     -1,
+				Offset:       -1,
 				Op:           op,
 				MaxHeartbeat: i.cfg.RingConfig.HeartbeatTimeout,
 			})
@@ -63,7 +68,7 @@ func (i *Lifecycler) findTransferWorkload(d *Desc, token StatefulToken) (transfe
 
 			target, err := d.Successor(NeighborOptions{
 				Start:        token,
-				Neighbor:     rf - replica,
+				Offset:       rf - replica,
 				Op:           op,
 				MaxHeartbeat: i.cfg.RingConfig.HeartbeatTimeout,
 			})

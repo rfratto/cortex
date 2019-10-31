@@ -149,12 +149,12 @@ func (r TokenRange) Contains(key uint32) bool {
 type IncrementalTransferer interface {
 	// BlockRanges should inform an ingester at targetAddr to no longer accept any
 	// writes in ranges of [from, to). If targetAddr is an empty string, should
-	// affect the logal ingester.
+	// affect the local ingester.
 	BlockRanges(ctx context.Context, ranges []TokenRange, targetAddr string) error
 
 	// UnblockRanges should inform an ingester at targetAddr that it can remove
 	// a block caused by BlockRange. If targetAddr is an empty string, should
-	// affect the logal ingester.
+	// affect the local ingester.
 	UnblockRanges(ctx context.Context, ranges []TokenRange, targetAddr string) error
 
 	// SendChunkRanges should connect to the target addr and send all chunks for
@@ -498,7 +498,10 @@ func (i *Lifecycler) loop() {
 	defer heartbeatTicker.Stop()
 
 	if i.cfg.JoinIncrementalTransfer {
-		autoJoinTimer.Stop()
+		if !autoJoinTimer.Stop() {
+			// Drain the value if one was available.
+			<-autoJoinTimer.C
+		}
 
 		level.Info(util.Logger).Log("msg", "joining cluster")
 		if err := i.waitCleanRing(context.Background()); err != nil {
@@ -895,11 +898,11 @@ func (i *Lifecycler) changeState(ctx context.Context, state State) error {
 	level.Info(util.Logger).Log("msg", "changing ingester state from", "old_state", currState, "new_state", state)
 	i.setState(state)
 
-	// If we're joining the ring and we don't have the incremental join enabled,
+	// If we're not actively leaving the ring and incremental join is disabled,
 	// we'll set all of our tokens to the same state we just changed into.
 	//
-	// Otherwise, if we're leaving the ring and don't have incremental leave
-	// enabled, we'll do the same.
+	// Likewise, we'll do the same if we are actively leaving the ring and
+	// incremental leave is disabled.
 	if !i.cfg.JoinIncrementalTransfer && state != LEAVING {
 		i.setTokensState(state)
 	} else if !i.cfg.LeaveIncrementalTransfer && state == LEAVING {
@@ -937,7 +940,7 @@ func (i *Lifecycler) processShutdown(ctx context.Context) {
 			shutdownDuration.WithLabelValues("incremental_transfer", "fail", i.RingName).Observe(time.Since(transferStart).Seconds())
 			transferDuration.WithLabelValues("leave", "fail", i.RingName).Observe(time.Since(transferStart).Seconds())
 		} else {
-			// If the ingester incorrectly receieved writes for streams
+			// If the ingester incorrectly received writes for streams
 			// not in any of its expected token ranges, we may still
 			// have data remaining that wasn't transferred out. This
 			// data should be flushed to disk so it's not lost.
