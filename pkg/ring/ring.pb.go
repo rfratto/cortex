@@ -110,11 +110,17 @@ func (m *Desc) GetTokens() []TokenDesc {
 }
 
 type IngesterDesc struct {
-	Addr           string           `protobuf:"bytes,1,opt,name=addr,proto3" json:"addr,omitempty"`
-	Timestamp      int64            `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	State          State            `protobuf:"varint,3,opt,name=state,proto3,enum=ring.State" json:"state,omitempty"`
-	Tokens         []uint32         `protobuf:"varint,6,rep,packed,name=tokens,proto3" json:"tokens,omitempty"`
-	StatefulTokens bool             `protobuf:"varint,7,opt,name=statefulTokens,proto3" json:"statefulTokens,omitempty"`
+	Addr      string `protobuf:"bytes,1,opt,name=addr,proto3" json:"addr,omitempty"`
+	Timestamp int64  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	State     State  `protobuf:"varint,3,opt,name=state,proto3,enum=ring.State" json:"state,omitempty"`
+	// Tokens is the list of all tokens for an ingester, regardless
+	// of whether they are ACTIVE.
+	Tokens []uint32 `protobuf:"varint,6,rep,packed,name=tokens,proto3" json:"tokens,omitempty"`
+	// StatefulTokens indicates whether the ingester's tokens have
+	// state. If false, token state should be inferred by the ingester
+	// state.
+	StatefulTokens bool `protobuf:"varint,7,opt,name=statefulTokens,proto3" json:"statefulTokens,omitempty"`
+	// InactiveTokens stores states for tokens that are not ACTIVE.
 	InactiveTokens map[uint32]State `protobuf:"bytes,8,rep,name=inactiveTokens,proto3" json:"inactiveTokens,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=ring.State"`
 }
 

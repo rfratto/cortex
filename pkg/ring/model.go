@@ -175,6 +175,7 @@ func (d *Desc) ClaimTokens(from, to string, normaliseTokens bool) []StatefulToke
 			}
 
 			fromDesc.Tokens = nil
+			fromDesc.InactiveTokens = nil
 			d.Ingesters[from] = fromDesc
 		}
 
@@ -298,10 +299,6 @@ func (d *Desc) Ready(now time.Time, heartbeatTimeout time.Duration) error {
 // provided tokens. RefreshTokenState will remove denormalised tokens for id
 // that are no longer in the list provided by tokens.
 func (d *Desc) RefreshTokenState(id string, tokens []StatefulToken, normalise bool) {
-	if d.Ingesters == nil {
-		d.Ingesters = make(map[string]IngesterDesc)
-	}
-
 	ing, ok := d.Ingesters[id]
 	if !ok {
 		return

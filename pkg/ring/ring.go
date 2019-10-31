@@ -31,11 +31,10 @@ const (
 type ReadRing interface {
 	prometheus.Collector
 
-	// Get returns n (or more) ingesters which form the replicas for the given key.
-	// ingeters and tokens are slices to be overwritten for the return value
-	// to avoid memory allocations; can be nil.
-	Get(key uint32, op Operation, ingesters []IngesterDesc,
-		tokens []TokenDesc) (ReplicationSet, error)
+	// Get returns n (or more) ingesters which form the replicas for the given
+	// key. ingesters and tokens are buffers to be overwritten so that generating
+	// the resulting ReplicationSet can avoid memory allocations; can be nil.
+	Get(key uint32, op Operation, ingesters []IngesterDesc, tokens []TokenDesc) (ReplicationSet, error)
 	GetAll() (ReplicationSet, error)
 	ReplicationFactor() int
 	IngesterCount() int

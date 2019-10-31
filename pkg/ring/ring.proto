@@ -18,9 +18,18 @@ message IngesterDesc {
   string addr = 1;
   int64 timestamp = 2;
   State state = 3;
+
+  // Tokens is the list of all tokens for an ingester, regardless
+  // of whether they are ACTIVE.
   repeated uint32 tokens = 6;
-  bool statefulTokens = 7; // if true, tokens have state.
-  map<uint32, State> inactiveTokens = 8; // only stores tokens that aren't ACTIVE
+
+  // StatefulTokens indicates whether the ingester's tokens have
+  // state. If false, token state should be inferred by the ingester
+  // state.
+  bool statefulTokens = 7;
+
+  // InactiveTokens stores states for tokens that are not ACTIVE.
+  map<uint32, State> inactiveTokens = 8;
 }
 
 message TokenDesc {

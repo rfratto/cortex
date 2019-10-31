@@ -5,14 +5,15 @@ import (
 	"time"
 )
 
-// replicationStrategy decides, given the set of ingesters eligible for a key,
-// which ingesters you will try and write to and how many failures you will
-// tolerate.
-// - Filters out dead ingesters so the one doesn't even try to write to them.
-// - Checks there is enough ingesters for an operation to succeed.
-// The ingesters argument may be overwritten.
+// replicationStrategy decides, given the set of tokens eligible for a key,
+// which tokens will be used for an operation and how many failures will
+// be tolerated. Tokens is expected to be a list where each token belongs
+// to a unique ingester.
+//
+// replicationStrategy will check to see if there's enough tokens for
+// an operation to succeed; unhealthy tokens are filtered out using
+// IsHealthyState.
 func (r *Ring) replicationStrategy(tokens []TokenDesc, op Operation) ([]TokenDesc, int, error) {
-
 	// We need a response from a quorum of ingesters, which is n/2 + 1.  In the
 	// case of a node joining/leaving, the actual replica set might be bigger
 	// than the replication factor, so use the bigger or the two.
