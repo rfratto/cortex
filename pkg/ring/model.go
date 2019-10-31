@@ -821,44 +821,43 @@ type RangeOptions struct {
 // inclusivity of each side of the range is determined by
 // opts.LeftInclusive and opts.RightInclusive.
 func (d *Desc) InRange(opts RangeOptions) bool {
-	start := d.search(opts.Range.From)
-	startTok := d.Tokens[start]
-	startIng := d.Ingesters[startTok.Ingester]
+	var (
+		start    = d.search(opts.Range.From)
+		startTok = d.Tokens[start]
 
-	if opts.LeftInclusive && startTok.Ingester == opts.ID &&
-		IsHealthyState(&startIng, startTok.State, opts.Op, opts.MaxHeartbeat) {
+		end    = d.search(opts.Range.To)
+		endTok = d.Tokens[end]
+	)
 
-		return true
-	} else if startTok.Token == opts.Range.To {
-		return opts.RightInclusive && startTok.Ingester == opts.ID &&
-			IsHealthyState(&startIng, startTok.State, opts.Op, opts.MaxHeartbeat)
+	healthy := func(t TokenDesc) bool {
+		ing := d.Ingesters[startTok.Ingester]
+		return IsHealthyState(&ing, t.State, opts.Op, opts.MaxHeartbeat)
 	}
 
-	end := d.search(opts.Range.To)
-	endTok := d.Tokens[end]
+	if opts.LeftInclusive && startTok.Ingester == opts.ID && healthy(startTok) {
+		return true
+	} else if startTok.Token == endTok.Token {
+		return opts.RightInclusive && endTok.Ingester == opts.ID && healthy(endTok)
+	}
 
-	idx := start
+	var (
+		idx = start
+		tok = d.Tokens[idx]
+	)
 	for {
 		idx++
 		idx %= len(d.Tokens)
 
-		tok := d.Tokens[idx]
+		tok = d.Tokens[idx]
 
 		if idx == start {
 			break
 		} else if tok.Token == endTok.Token {
 			break
-		} else if tok.Ingester == opts.ID {
-			ing := d.Ingesters[tok.Ingester]
-			healthy := IsHealthyState(&ing, tok.State, opts.Op, opts.MaxHeartbeat)
-			if healthy {
-				return true
-			}
+		} else if tok.Ingester == opts.ID && healthy(tok) {
+			return true
 		}
 	}
 
-	tok := d.Tokens[idx]
-	ing := d.Ingesters[tok.Ingester]
-	return opts.RightInclusive && tok.Ingester == opts.ID &&
-		IsHealthyState(&ing, tok.State, opts.Op, opts.MaxHeartbeat)
+	return opts.RightInclusive && tok.Ingester == opts.ID && healthy(tok)
 }
