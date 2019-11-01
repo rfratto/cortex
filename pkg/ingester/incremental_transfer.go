@@ -58,6 +58,7 @@ func (i *Ingester) BlockTokenRange(ctx context.Context, req *client.RangeRequest
 	defer i.blockedTokenMtx.Unlock()
 
 	for _, rg := range req.Ranges {
+	outer:
 		for _, r := range i.blockedTokens {
 			if r.From == rg.StartRange && r.To == rg.EndRange {
 				// Multiple clients may request a block simultaneously. We silently
@@ -65,7 +66,7 @@ func (i *Ingester) BlockTokenRange(ctx context.Context, req *client.RangeRequest
 				level.Warn(util.Logger).Log("msg", "token range already blocked",
 					"start_token", rg.StartRange, "end_token", rg.EndRange)
 
-				continue
+				continue outer
 			}
 		}
 
@@ -141,7 +142,6 @@ func (i *Ingester) UnblockTokenRange(ctx context.Context, req *client.RangeReque
 // to stop accepting writes in a series of token ranges specified
 // as [from, to).
 func (i *Ingester) BlockRanges(ctx context.Context, ranges []ring.TokenRange, targetAddr string) error {
-
 	if targetAddr == "" {
 		_, err := i.BlockTokenRange(ctx, &client.RangeRequest{
 			Ranges: makeProtoRanges(ranges),
@@ -168,9 +168,7 @@ func (i *Ingester) BlockRanges(ctx context.Context, ranges []ring.TokenRange, ta
 
 // UnblockRanges connects to the ingester at targetAddr and informs them
 // to remove one or more blocks previously set by BlockRanges.
-func (i *Ingester) UnblockRanges(ctx context.Context, ranges []ring.TokenRange,
-	targetAddr string) error {
-
+func (i *Ingester) UnblockRanges(ctx context.Context, ranges []ring.TokenRange, targetAddr string) error {
 	if targetAddr == "" {
 		_, err := i.UnblockTokenRange(ctx, &client.RangeRequest{
 			Ranges: makeProtoRanges(ranges),
@@ -198,9 +196,7 @@ func (i *Ingester) UnblockRanges(ctx context.Context, ranges []ring.TokenRange,
 // SendChunkRanges connects to the ingester at targetAddr and sends all
 // chunks for streams whose fingerprint falls within the series of
 // specified ranges.
-func (i *Ingester) SendChunkRanges(ctx context.Context, ranges []ring.TokenRange,
-	targetAddr string) error {
-
+func (i *Ingester) SendChunkRanges(ctx context.Context, ranges []ring.TokenRange, targetAddr string) error {
 	userStatesCopy := i.userStates.cp()
 	if len(userStatesCopy) == 0 {
 		level.Info(util.Logger).Log("msg", "nothing to transfer")
@@ -259,9 +255,7 @@ func (i *Ingester) SendChunkRanges(ctx context.Context, ranges []ring.TokenRange
 //
 // If move is true, the target ingester should remove sent chunks from
 // local memory if the transfer succeeds.
-func (i *Ingester) RequestChunkRanges(ctx context.Context, ranges []ring.TokenRange,
-	targetAddr string, move bool) error {
-
+func (i *Ingester) RequestChunkRanges(ctx context.Context, ranges []ring.TokenRange, targetAddr string, move bool) error {
 	c, err := i.cfg.ingesterClientFactory(targetAddr, i.clientConfig)
 	if err != nil {
 		return err
@@ -309,7 +303,7 @@ func (i *Ingester) RequestChunkRanges(ctx context.Context, ranges []ring.TokenRa
 
 // StreamTokens returns series of tokens for in-memory streams.
 func (i *Ingester) StreamTokens() []uint32 {
-	ret := []uint32{}
+	var ret []uint32
 
 	userStatesCopy := i.userStates.cp()
 	for _, state := range userStatesCopy {
@@ -320,7 +314,7 @@ func (i *Ingester) StreamTokens() []uint32 {
 				continue
 			}
 
-			if !pair.series.head().flushed {
+			if head := pair.series.head(); head != nil && !head.flushed {
 				ret = append(ret, pair.series.token)
 			}
 		}

@@ -43,7 +43,7 @@ func GenerateTokens(numTokens int, takenTokens []StatefulToken, state State) []S
 		used[v.Token] = true
 	}
 
-	tokens := []StatefulToken{}
+	var tokens []StatefulToken
 
 	for i := 0; i < numTokens; {
 		candidate := r.Uint32()

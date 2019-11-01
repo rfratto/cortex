@@ -284,7 +284,7 @@ func TokenGeneratorWithRand(r *rnd.Rand) ring.TokenGeneratorFunc {
 			used[v.Token] = true
 		}
 
-		tokens := []ring.StatefulToken{}
+		var tokens []ring.StatefulToken
 
 		for i := 0; i < numTokens; {
 			candidate := r.Uint32()
@@ -313,7 +313,7 @@ func BenchmarkIncrementalTransfer(b *testing.B) {
 	f.ReplicationFactor = 3
 	f.NumTokens = 256
 
-	ingesters := []*Ingester{}
+	var ingesters []*Ingester
 
 	// Add 5 ingesters into the ring.
 	for i := 0; i < 5; i++ {
@@ -679,7 +679,7 @@ func (f *testIngesterFactory) getIngester(t require.TestingT) *Ingester {
 	cfg.LifecyclerConfig.GenerateTokens =
 		func(numTokens int, taken []ring.StatefulToken, state ring.State) []ring.StatefulToken {
 			value := uint32(currentIngesters + 1)
-			tokens := []ring.StatefulToken{}
+			var tokens []ring.StatefulToken
 			for i := 0; i < numTokens; i++ {
 				tokens = append(tokens, ring.StatefulToken{
 					Token: value,

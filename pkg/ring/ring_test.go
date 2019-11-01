@@ -35,7 +35,7 @@ func BenchmarkBatch100x1000(b *testing.B) {
 func benchmarkBatch(b *testing.B, numIngester, numKeys int) {
 	// Make a random ring with N ingesters, and M tokens per ingests
 	desc := NewDesc()
-	takenTokens := []StatefulToken{}
+	var takenTokens []StatefulToken
 	for i := 0; i < numIngester; i++ {
 		tokens := GenerateTokens(numTokens, takenTokens, ACTIVE)
 		takenTokens = append(takenTokens, tokens...)

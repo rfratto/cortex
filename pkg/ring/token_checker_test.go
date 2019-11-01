@@ -60,7 +60,7 @@ func TestTokenChecker(t *testing.T) {
 	transfer := &mockTokenCheckerTransfer{}
 	generator := makeSequentialTokenGenerator()
 
-	lifecyclers := []*Lifecycler{}
+	var lifecyclers []*Lifecycler
 	for i := 0; i < 2; i++ {
 		id := fmt.Sprintf("lc-%d", i)
 
@@ -88,12 +88,13 @@ func TestTokenChecker(t *testing.T) {
 		transfer.tokens = append(transfer.tokens, tok.Token-1)
 	}
 
-	tc, err := NewTokenChecker(TokenCheckerConfig{
+	tc := NewTokenChecker(TokenCheckerConfig{
 		CheckOnCreate:   true,
 		CheckOnAppend:   true,
 		CheckOnTransfer: true,
 		CheckOnInterval: time.Duration(50 * time.Millisecond),
 	}, lifecyclers[0])
+	err = tc.Start()
 	require.NoError(t, err)
 	defer tc.Shutdown()
 

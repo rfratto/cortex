@@ -158,10 +158,10 @@ func (i *Lifecycler) joinIncrementalTransfer(ctx context.Context) error {
 		return nil
 	}
 
-	pendingUnblocks := []struct {
+	var pendingUnblocks []struct {
 		addr string
 		rgs  []TokenRange
-	}{}
+	}
 
 	var wg sync.WaitGroup
 

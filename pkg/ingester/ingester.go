@@ -241,11 +241,12 @@ func New(cfg Config, clientConfig client.Config, limits *validation.Overrides, c
 
 	// Now that user states have been created, we can start the lifecycler
 	i.lifecycler.Start()
-	i.tokenChecker, err = ring.NewTokenChecker(cfg.TokenCheckerConfig, i.lifecycler)
-	if err != nil {
+
+	i.tokenChecker = ring.NewTokenChecker(cfg.TokenCheckerConfig, i.lifecycler)
+	i.tokenChecker.UnexpectedTokenHandler = i.unexpectedTokenHandler
+	if err := i.tokenChecker.Start(); err != nil {
 		return nil, err
 	}
-	i.tokenChecker.UnexpectedTokenHandler = i.unexpectedTokenHandler
 
 	i.flushQueuesDone.Add(cfg.ConcurrentFlushes)
 	for j := 0; j < cfg.ConcurrentFlushes; j++ {

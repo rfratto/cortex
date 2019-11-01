@@ -149,7 +149,7 @@ func (d *Desc) AddIngester(id, addr string, tokens []StatefulToken, state State,
 // RemoveIngester removes the given ingester and all its tokens.
 func (d *Desc) RemoveIngester(id string) {
 	delete(d.Ingesters, id)
-	output := []TokenDesc{}
+	var output []TokenDesc
 	for i := 0; i < len(d.Tokens); i++ {
 		if d.Tokens[i].Ingester != id {
 			output = append(output, d.Tokens[i])
@@ -703,7 +703,7 @@ func (d *Desc) Predecessors(opts NeighborOptions) ([]TokenDesc, error) {
 
 	// Naive solution: go over every token in the ring and see if its
 	// opts.Neighbor successor is opts.Start.
-	predecessors := []TokenDesc{}
+	var predecessors []TokenDesc
 	for _, t := range d.Tokens {
 		ing := d.Ingesters[t.Ingester]
 		if !IsHealthyState(&ing, t.State, opts.Op, opts.MaxHeartbeat) {

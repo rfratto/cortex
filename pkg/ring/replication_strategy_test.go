@@ -75,7 +75,7 @@ func TestReplicationStrategy(t *testing.T) {
 			ExpectedError: "at least 3 live ingesters required, could only find 2",
 		},
 	} {
-		tokens := []TokenDesc{}
+		var tokens []TokenDesc
 		for i := 0; i < tc.LiveIngesters; i++ {
 			tokens = append(tokens, TokenDesc{
 				Ingester: "live",
