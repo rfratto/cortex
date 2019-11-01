@@ -67,8 +67,8 @@ func (i *Lifecycler) findTransferWorkload(d *Desc, token StatefulToken) (transfe
 			}
 
 			target, err := d.Successor(NeighborOptions{
-				Start:        token,
-				Offset:       rf - replica,
+				Start:        startRange.StatefulToken(),
+				Offset:       rf,
 				Op:           op,
 				MaxHeartbeat: i.cfg.RingConfig.HeartbeatTimeout,
 			})

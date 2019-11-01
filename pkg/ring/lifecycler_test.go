@@ -618,6 +618,16 @@ func TestFindTransferWorkload(t *testing.T) {
 				"A": []TokenRange{{6, 7}},
 			},
 		},
+
+		{
+			name:        "joining: target can not be same as end range",
+			ring:        "A1 B1 C1+ B2 A2 D1 E1",
+			tokenIdx:    2, // C1+
+			replication: 3,
+			expect: transferWorkload{
+				"D": []TokenRange{{2, 3}, {1, 2}, {7, 1}},
+			},
+		},
 	}
 
 	for _, tc := range tt {
