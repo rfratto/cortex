@@ -684,44 +684,71 @@ type NeighborOptions struct {
 // tokens of which tok is successor n to.
 func (d *Desc) Predecessors(opts NeighborOptions) ([]TokenDesc, error) {
 	idx := d.search(opts.Start.Token)
-	if len(d.Tokens) == 0 || d.Tokens[idx].Token != opts.Start.Token {
+	if d.Tokens[idx].Token != opts.Start.Token {
 		return nil, fmt.Errorf("could not find token %d in ring", opts.Start.Token)
-	}
-	if opts.Offset == 0 {
+	} else if opts.Offset == 0 {
 		return []TokenDesc{d.Tokens[idx]}, nil
 	} else if opts.Offset < 0 {
-		return nil, errors.New("Predecessors may only be called with a positive Neighbor value")
+		return nil, errors.New("Predecessors may only be called with a positive Offset value")
 	}
 
-	// Temporarily make the start token ACTIVE since we want it to
-	// be seen in the ring as in the replica set.
-	oldState := d.Tokens[idx].State
-	d.Tokens[idx].State = ACTIVE
-	defer func() {
-		d.Tokens[idx].State = oldState
-	}()
+	var (
+		predecessors []TokenDesc
 
-	// Naive solution: go over every token in the ring and see if its
-	// opts.Neighbor successor is opts.Start.
-	var predecessors []TokenDesc
-	for _, t := range d.Tokens {
+		distinct = map[string]struct{}{}
+		startTok = d.Tokens[idx]
+		startIdx = idx
+	)
+
+	// We'll be filtering tokens down to those whose Offset predecessor is
+	// our starting token. We want to pretend our starting token is already
+	// in the ring in an ACTIVE and healthy state, so we use this function
+	// to force it.
+	healthyOrStart := func(t TokenDesc, s State, o Operation, hb time.Duration) bool {
+		if t.Token == startTok.Token {
+			return true
+		}
+
 		ing := d.Ingesters[t.Ingester]
-		if !IsHealthyState(&ing, t.State, opts.Op, opts.MaxHeartbeat) {
+		return IsHealthyState(&ing, s, o, hb)
+	}
+
+	for {
+		idx--
+		if idx < 0 {
+			idx = len(d.Tokens) - 1
+		}
+
+		// Stop if we've completely circled the ring
+		if idx == startIdx {
+			break
+		}
+
+		predecessor := d.Tokens[idx]
+		ing := d.Ingesters[predecessor.Ingester]
+
+		// Stop if this is a new ingester and we already have seen enough unique ingesters.
+		if _, ok := distinct[predecessor.Ingester]; !ok && len(distinct) == opts.Offset+1 {
+			break
+		} else if !IsHealthyState(&ing, predecessor.State, opts.Op, opts.MaxHeartbeat) {
 			continue
 		}
 
-		succ, err := d.Successor(NeighborOptions{
-			Start:        t.StatefulToken(),
+		// Collect the token if its successor is our starting token.
+		succ, err := d.successor(NeighborOptions{
+			Start:        predecessor.StatefulToken(),
 			Offset:       opts.Offset,
 			Op:           opts.Op,
 			MaxHeartbeat: opts.MaxHeartbeat,
 			IncludeStart: true,
-		})
+		}, healthyOrStart)
 		if err != nil {
 			return predecessors, err
 		} else if succ.Token == opts.Start.Token {
-			predecessors = append(predecessors, t)
+			predecessors = append([]TokenDesc{predecessor}, predecessors...)
 		}
+
+		distinct[predecessor.Ingester] = struct{}{}
 	}
 
 	return predecessors, nil
@@ -741,6 +768,15 @@ func (d *Desc) Predecessors(opts NeighborOptions) ([]TokenDesc, error) {
 // will search the ring counter-clockwise. An offset of 0 will return
 // the starting token.
 func (d *Desc) Successor(opts NeighborOptions) (TokenDesc, error) {
+	return d.successor(opts, func(t TokenDesc, s State, o Operation, hb time.Duration) bool {
+		ing := d.Ingesters[t.Ingester]
+		return IsHealthyState(&ing, s, o, hb)
+	})
+}
+
+type healthCheckFunc func(TokenDesc, State, Operation, time.Duration) bool
+
+func (d *Desc) successor(opts NeighborOptions, healthy healthCheckFunc) (TokenDesc, error) {
 	idx := d.search(opts.Start.Token)
 	if d.Tokens[idx].Token != opts.Start.Token {
 		return TokenDesc{}, fmt.Errorf("could not find token %d in ring", opts.Start.Token)
@@ -784,9 +820,8 @@ func (d *Desc) Successor(opts NeighborOptions) (TokenDesc, error) {
 		if _, ok := distinct[successor.Ingester]; ok {
 			continue
 		}
-		ing := d.Ingesters[successor.Ingester]
 
-		if IsHealthyState(&ing, successor.State, opts.Op, opts.MaxHeartbeat) {
+		if healthy(successor, successor.State, opts.Op, opts.MaxHeartbeat) {
 			successors = append(successors, successor)
 			if len(successors) == numSuccessors {
 				return successor, nil
