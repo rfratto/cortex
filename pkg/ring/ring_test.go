@@ -182,9 +182,11 @@ func (r *namedRing) Token(t *testing.T, name string) uint32 {
 func (r *namedRing) TokenDesc(t *testing.T, name string) TokenDesc {
 	t.Helper()
 	v := r.Token(t, name)
-	for _, tok := range r.Desc.Tokens {
-		if tok.Token == v {
-			return tok
+	for name, ing := range r.Desc.Ingesters {
+		for _, tok := range ing.Tokens {
+			if tok == v {
+				return TokenDesc{Token: tok, Ingester: name}
+			}
 		}
 	}
 	t.Fatalf("could not find %s in ring", name)
@@ -193,18 +195,20 @@ func (r *namedRing) TokenDesc(t *testing.T, name string) TokenDesc {
 
 // BindStates binds token states to the ingesters.
 func (r *namedRing) BindStates(t *testing.T) {
-	for _, tok := range r.Desc.Tokens {
-		state := ACTIVE
-		for t, s := range r.tokenStates {
-			if tok.Token == t {
-				state = s
-				break
+	for name, ing := range r.Desc.Ingesters {
+		for _, tok := range ing.Tokens {
+			state := ACTIVE
+			for t, s := range r.tokenStates {
+				if tok == t {
+					state = s
+					break
+				}
 			}
-		}
 
-		ing := r.Desc.Ingesters[tok.Ingester]
-		ing.State = state
-		r.Desc.Ingesters[tok.Ingester] = ing
+			ing := r.Desc.Ingesters[name]
+			ing.State = state
+			r.Desc.Ingesters[name] = ing
+		}
 	}
 }
 
@@ -303,7 +307,6 @@ func generateRing(t *testing.T, desc string) *namedRing {
 		nextToken++
 	}
 
-	r.Tokens = r.Desc.GetNavigator()
 	for id, ing := range r.Ingesters {
 		ing.Tokens = nil
 		r.Ingesters[id] = ing
@@ -362,7 +365,7 @@ func TestRingGet(t *testing.T) {
 			ringConfig.ReplicationFactor = 3
 			ringConfig.KVStore.Mock = consul.NewInMemoryClient(GetCodec())
 
-			r, err := New(ringConfig, "ingester")
+			r, err := New(ringConfig, "ingester", "ring")
 			require.NoError(t, err)
 			// Stop is slow, run it in a goroutine and don't wait for it
 			defer func() { go r.Stop() }()

@@ -94,19 +94,6 @@ func (d *Desc) ClaimTokens(from, to string) []uint32 {
 		d.Ingesters[from] = fromDesc
 	}
 
-	// If we are storing the tokens in a normalise form, we need to deal with
-	// the migration from denormalised by removing the tokens from the tokens
-	// list.
-	// When all ingesters are in normalised mode, d.Tokens is empty here
-	for i := 0; i < len(d.Tokens); {
-		if d.Tokens[i].Ingester == from {
-			result = append(result, d.Tokens[i].Token)
-			d.Tokens = append(d.Tokens[:i], d.Tokens[i+1:]...)
-			continue
-		}
-		i++
-	}
-
 	ing := d.Ingesters[to]
 	ing.Tokens = result
 	d.Ingesters[to] = ing
@@ -178,7 +165,7 @@ func (i *IngesterDesc) IsHealthyState(op Operation) bool {
 		healthy = true
 	}
 
-	return true
+	return healthy
 }
 
 // IsHealthy checks whether the ingester appears to be alive and heartbeating
@@ -436,6 +423,11 @@ func (d *Desc) HealthChecker(op Operation, heartbeatTimeout time.Duration) Healt
 		ing := d.Ingesters[t.Ingester]
 		return ing.IsHealthy(op, heartbeatTimeout)
 	}
+}
+
+type TokenDesc struct {
+	Token    uint32
+	Ingester string
 }
 
 // GetNavigator returns a TokenNavigator from the Desc.

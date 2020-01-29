@@ -52,8 +52,7 @@ func checkNormalised(d interface{}, id string) bool {
 	return ok &&
 		len(desc.Ingesters) == 1 &&
 		desc.Ingesters[id].State == ACTIVE &&
-		len(desc.Ingesters[id].Tokens) == 1 &&
-		len(desc.Tokens) == 0
+		len(desc.Ingesters[id].Tokens) == 1
 }
 
 func TestLifecycler_HealthyInstancesCount(t *testing.T) {
@@ -110,7 +109,7 @@ func TestLifecycler_NilFlushTransferer(t *testing.T) {
 	lifecyclerConfig := testLifecyclerConfig(ringConfig, "ing1")
 
 	// Create a lifecycler with nil FlushTransferer to make sure it operates correctly
-	lifecycler, err := NewLifecycler(lifecyclerConfig, nil, "ingester", IngesterRingKey, true)
+	lifecycler, err := NewLifecycler(lifecyclerConfig, nil, nil, "ingester", IngesterRingKey, true)
 	require.NoError(t, err)
 	lifecycler.Start()
 
@@ -133,12 +132,12 @@ func TestLifecycler_TwoRingsWithDifferentKeysOnTheSameKVStore(t *testing.T) {
 	lifecyclerConfig1 := testLifecyclerConfig(ringConfig, "instance-1")
 	lifecyclerConfig2 := testLifecyclerConfig(ringConfig, "instance-2")
 
-	lifecycler1, err := NewLifecycler(lifecyclerConfig1, nil, "service-1", "ring-1", true)
+	lifecycler1, err := NewLifecycler(lifecyclerConfig1, nil, nil, "service-1", "ring-1", true)
 	require.NoError(t, err)
 	lifecycler1.Start()
 	defer lifecycler1.Shutdown()
 
-	lifecycler2, err := NewLifecycler(lifecyclerConfig2, nil, "service-2", "ring-2", true)
+	lifecycler2, err := NewLifecycler(lifecyclerConfig2, nil, nil, "service-2", "ring-2", true)
 	require.NoError(t, err)
 	lifecycler2.Start()
 	defer lifecycler2.Shutdown()
@@ -303,7 +302,7 @@ func TestTokensOnDisk(t *testing.T) {
 	lifecyclerConfig.TokensFilePath = tokenDir + "/tokens"
 
 	// Start first ingester.
-	l1, err := NewLifecycler(lifecyclerConfig, &noopFlushTransferer{}, "ingester", IngesterRingKey, true)
+	l1, err := NewLifecycler(lifecyclerConfig, &noopFlushTransferer{}, nil, "ingester", IngesterRingKey, true)
 	require.NoError(t, err)
 	l1.Start()
 	// Check this ingester joined, is active, and has 512 token.
@@ -325,7 +324,7 @@ func TestTokensOnDisk(t *testing.T) {
 
 	// Start new ingester at same token directory.
 	lifecyclerConfig.ID = "ing2"
-	l2, err := NewLifecycler(lifecyclerConfig, &noopFlushTransferer{}, "ingester", IngesterRingKey, true)
+	l2, err := NewLifecycler(lifecyclerConfig, &noopFlushTransferer{}, nil, "ingester", IngesterRingKey, true)
 	require.NoError(t, err)
 	l2.Start()
 	defer l2.Shutdown()
@@ -386,7 +385,7 @@ func TestJoinInLeavingState(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	l1, err := NewLifecycler(cfg, &nopFlushTransferer{}, "ingester", IngesterRingKey, true)
+	l1, err := NewLifecycler(cfg, &nopFlushTransferer{}, nil, "ingester", IngesterRingKey, true)
 	l1.Start()
 	require.NoError(t, err)
 
@@ -726,7 +725,7 @@ func waitIngesterState(t *testing.T, r *Ring, id string, waitTime time.Duration,
 	t.Helper()
 
 	test.Poll(t, waitTime, true, func() interface{} {
-		d, err := r.KVClient.Get(context.Background(), ConsulKey)
+		d, err := r.KVClient.Get(context.Background(), "ring")
 		require.NoError(t, err)
 		if d == nil {
 			return false
@@ -750,8 +749,7 @@ func getLifecyclers(t *testing.T, r *Ring, cfg Config, count int) ([]*Lifecycler
 		lcc := testLifecyclerConfig(cfg, id)
 		lcc.Addr = id
 		lcc.NumTokens = 64
-		lcc.NormaliseTokens = true // Ensure that the lifecycler denormalizes tokens
-		lc, err := NewLifecycler(lcc, &nopFlushTransferer{allowTransfer: true}, nil, id)
+		lc, err := NewLifecycler(lcc, &nopFlushTransferer{allowTransfer: true}, nil, id, "ring", true)
 		require.NoError(t, err)
 		lc.Start()
 
@@ -782,7 +780,7 @@ func testIncrementalRingConfig(t *testing.T) Config {
 
 func TestIncrementalJoin(t *testing.T) {
 	ringConfig := testIncrementalRingConfig(t)
-	r, err := New(ringConfig, "ingester")
+	r, err := New(ringConfig, "ingester", "ring")
 	require.NoError(t, err)
 	defer r.Stop()
 
@@ -794,8 +792,7 @@ func TestIncrementalJoin(t *testing.T) {
 	lcc := testLifecyclerConfig(ringConfig, "joiner")
 	lcc.NumTokens = 64
 	lcc.JoinIncrementalTransfer = true
-	lcc.NormaliseTokens = true // Ensure that the lifecycler denormalizes tokens
-	lc, err := NewLifecycler(lcc, &nopFlushTransferer{allowTransfer: true}, &mock, "joiner")
+	lc, err := NewLifecycler(lcc, &nopFlushTransferer{allowTransfer: true}, &mock, "joiner", "ring", true)
 	require.NoError(t, err)
 	lc.Start()
 	defer lc.Shutdown()
@@ -837,7 +834,7 @@ func TestIncrementalLeave(t *testing.T) {
 	mockClient.MapFunctions(inMemory)
 	ringConfig.KVStore.Mock = mockClient
 
-	r, err := New(ringConfig, "ingester")
+	r, err := New(ringConfig, "ingester", "ring")
 	require.NoError(t, err)
 	defer r.Stop()
 
@@ -849,8 +846,7 @@ func TestIncrementalLeave(t *testing.T) {
 	lcc := testLifecyclerConfig(ringConfig, "leaver")
 	lcc.NumTokens = 64
 	lcc.LeaveIncrementalTransfer = true
-	lcc.NormaliseTokens = true // Ensure that the lifecycler denormalizes tokens
-	lc, err := NewLifecycler(lcc, &nopFlushTransferer{allowTransfer: true}, &mock, "leaver")
+	lc, err := NewLifecycler(lcc, &nopFlushTransferer{allowTransfer: true}, &mock, "leaver", "ring", true)
 	require.NoError(t, err)
 	lc.Start()
 

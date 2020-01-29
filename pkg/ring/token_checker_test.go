@@ -50,7 +50,7 @@ func TestTokenChecker(t *testing.T) {
 	mockClient.MapFunctions(inMemory)
 	ringConfig.KVStore.Mock = mockClient
 
-	r, err := New(ringConfig, "ring")
+	r, err := New(ringConfig, "ring", "ring")
 	require.NoError(t, err)
 	defer r.Stop()
 
@@ -66,13 +66,13 @@ func TestTokenChecker(t *testing.T) {
 		lcc.NumTokens = 32
 		lcc.GenerateTokens = generator
 
-		lc, err := NewLifecycler(lcc, &nopFlushTransferer{true}, transfer, id)
+		lc, err := NewLifecycler(lcc, &nopFlushTransferer{true}, transfer, id, "ring", true)
 		require.NoError(t, err)
 		lc.Start()
 		defer lc.Shutdown()
 
 		test.Poll(t, 500*time.Millisecond, true, func() interface{} {
-			d, err := r.KVClient.Get(context.Background(), ConsulKey)
+			d, err := r.KVClient.Get(context.Background(), "ring")
 			require.NoError(t, err)
 			desc, ok := d.(*Desc)
 			if !ok {

@@ -113,9 +113,9 @@ func (i *Ingester) acceptChunksFromStream(opts acceptChunksOptions) (fromIngeste
 			return fromIngesterID, seriesReceived, errors.Wrap(err, "TransferChunks: fromWireChunks")
 		}
 
-		state, fp, series, ssate, err := opts.States.getOrCreateSeries(opts.Stream.Context(), wireSeries.UserId, wireSeries.Labels, wireSeries.Token, nil)
+		state, fp, series, sstate, err := opts.States.getOrCreateSeries(opts.Stream.Context(), wireSeries.UserId, wireSeries.Labels, nil, wireSeries.Token)
 		if err != nil {
-			return errors.Wrapf(err, "TransferChunks: getOrCreateSeries: user %s series %s", wireSeries.UserId, wireSeries.Labels)
+			return fromIngesterID, seriesReceived, errors.Wrapf(err, "TransferChunks: getOrCreateSeries: user %s series %s", wireSeries.UserId, wireSeries.Labels)
 		}
 		prevNumChunks := len(series.chunkDescs)
 
@@ -192,7 +192,7 @@ func (i *Ingester) pushChunksPair(opts pushChunksOptions, userID string, state *
 		return nil
 	}
 
-	chunks, err := toWireChunks(pair.series.chunkDescs)
+	chunks, err := toWireChunks(pair.series.chunkDescs, []client.Chunk{})
 	if err != nil {
 		return errors.Wrap(err, "toWireChunks")
 	}
@@ -225,7 +225,7 @@ func (i *Ingester) TransferChunks(stream client.Ingester_TransferChunksServer) e
 	seriesReceived := 0
 
 	xfer := func() error {
-		userStates := newUserStates(i.limiter, i.cfg)
+		userStates := newUserStates(i.limiter, i.cfg, i.metrics)
 
 		fromIngesterID, seriesReceived, err := i.acceptChunksFromStream(acceptChunksOptions{
 			States:                userStates,

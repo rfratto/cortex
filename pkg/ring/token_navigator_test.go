@@ -111,7 +111,7 @@ func TestTokenNavigator_InRange(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			r := generateRing(t, tc.desc)
 			healthy := r.TokenHealthChecker(Read)
-			n := TokenNavigator(r.Tokens)
+			n := r.GetNavigator()
 
 			ok, err := n.InRange(tc.opts, healthy)
 			require.NoError(t, err)
@@ -158,7 +158,7 @@ func TestTokenNavigator_Predecessors(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			r := generateRing(t, tc.desc)
 			healthy := r.TokenHealthChecker(Read)
-			n := TokenNavigator(r.Tokens)
+			n := r.GetNavigator()
 
 			start := r.TokenDesc(t, tc.token)
 			res, err := n.Predecessors(start.Token, tc.n, healthy)
@@ -214,7 +214,7 @@ func TestTokenNavigator_Successor(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			r := generateRing(t, tc.desc)
 			healthy := r.TokenHealthChecker(Read)
-			n := TokenNavigator(r.Tokens)
+			n := r.GetNavigator()
 
 			start := r.TokenDesc(t, tc.token)
 			res, err := n.Neighbor(start.Token, tc.n, tc.includeStart, healthy)

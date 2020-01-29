@@ -48,7 +48,6 @@ type Config struct {
 	WALConfig        WALConfig
 	LifecyclerConfig ring.LifecyclerConfig `yaml:"lifecycler,omitempty"`
 
-	LifecyclerConfig   ring.LifecyclerConfig   `yaml:"lifecycler,omitempty"`
 	TokenCheckerConfig ring.TokenCheckerConfig `yaml:"token_checker,omitempty"`
 
 	// Config for transferring chunks. Zero or negative = no retries.
@@ -388,7 +387,7 @@ func (i *Ingester) isTokenBlocked(token uint32) error {
 
 	for rg := range i.blockedRanges {
 		if rg.Contains(token) {
-			return validationError{
+			return &validationError{
 				err:  errors.New("transfer in progress"),
 				code: http.StatusServiceUnavailable,
 			}
@@ -421,7 +420,7 @@ func (i *Ingester) append(ctx context.Context, userID string, token uint32, labe
 		return err
 	}
 
-	state, fp, series, err := i.userStates.getOrCreateSeries(ctx, userID, labels, record, token)
+	state, fp, series, sstate, err := i.userStates.getOrCreateSeries(ctx, userID, labels, record, token)
 	if err != nil {
 		if ve, ok := err.(*validationError); ok {
 			state.discardedSamples.WithLabelValues(ve.errorType).Inc()

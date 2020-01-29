@@ -169,8 +169,8 @@ type Lifecycler struct {
 	// back empty.  And it changes during lifecycle of ingester.
 	stateMtx            sync.RWMutex
 	state               IngesterState
-	transitioningTokens []uint32
-	tokens              []uint32
+	transitioningTokens Tokens
+	tokens              Tokens
 
 	// Controls the ready-reporting
 	readyLock sync.Mutex
@@ -309,7 +309,7 @@ func (i *Lifecycler) ChangeState(ctx context.Context, state IngesterState) error
 	return <-err
 }
 
-func (i *Lifecycler) getTransitioningTokens() []uint32 {
+func (i *Lifecycler) getTransitioningTokens() Tokens {
 	i.stateMtx.RLock()
 	defer i.stateMtx.RUnlock()
 	ret := make([]uint32, len(i.transitioningTokens))
@@ -317,7 +317,7 @@ func (i *Lifecycler) getTransitioningTokens() []uint32 {
 	return ret
 }
 
-func (i *Lifecycler) getTokens() []uint32 {
+func (i *Lifecycler) getTokens() Tokens {
 	i.stateMtx.RLock()
 	defer i.stateMtx.RUnlock()
 	ret := make([]uint32, len(i.tokens))
@@ -352,7 +352,7 @@ func (i *Lifecycler) removeToken(token uint32) {
 	}
 }
 
-func (i *Lifecycler) setTransitioningTokens(tokens []uint32) {
+func (i *Lifecycler) setTransitioningTokens(tokens Tokens) {
 	i.stateMtx.Lock()
 	defer i.stateMtx.Unlock()
 
@@ -620,7 +620,7 @@ func (i *Lifecycler) waitCleanRing(ctx context.Context) error {
 // or LEAVING ingesters. "clean" implies that it is safe for a
 // new node to join.
 func (i *Lifecycler) checkCleanRing(ctx context.Context) (bool, error) {
-	d, err := i.KVStore.Get(ctx, ConsulKey)
+	d, err := i.KVStore.Get(ctx, i.RingKey)
 	if err != nil {
 		return false, err
 	} else if d == nil {
@@ -673,23 +673,23 @@ func (i *Lifecycler) initRing(ctx context.Context) error {
 
 		ingesterDesc, ok := ringDesc.Ingesters[i.ID]
 		if !ok {
+			state := i.GetState()
+			incremental := i.incrementalFromState(state)
+
 			// We use the tokens from the file only if it does not exist in the ring yet.
 			if len(tokensFromFile) > 0 {
 				level.Info(util.Logger).Log("msg", "adding tokens from file", "num_tokens", len(tokensFromFile))
 				if len(tokensFromFile) >= i.cfg.NumTokens {
 					i.setState(ACTIVE)
 				}
-				ringDesc.AddIngester(i.ID, i.Addr, tokensFromFile, i.GetState())
+				ringDesc.AddIngester(i.ID, i.Addr, tokensFromFile, i.GetState(), incremental)
 				i.setTokens(tokensFromFile)
 				return ringDesc, true, nil
 			}
 
 			// Either we are a new ingester, or consul must have restarted
 			level.Info(util.Logger).Log("msg", "instance not found in ring, adding with no tokens", "ring", i.RingName)
-
-			state := i.GetState()
-			incremental := i.incrementalFromState(state)
-			ringDesc.AddIngester(i.ID, i.Addr, nil, i.GetState(), incremental)
+			ringDesc.AddIngester(i.ID, i.Addr, nil, state, incremental)
 			return ringDesc, true, nil
 		}
 
@@ -742,14 +742,14 @@ func (i *Lifecycler) verifyTokens(ctx context.Context) bool {
 			level.Info(util.Logger).Log("msg", "generating new tokens", "count", needTokens, "ring", i.RingName)
 			newTokens := i.generateTokens(needTokens, takenTokens)
 
-			ringTokens = append(ringTokens, newTokens...)
-			sort.Sort(ringTokens)
+			addTokens := Tokens(append(ringTokens, newTokens...))
+			sort.Sort(addTokens)
 
 			state := i.GetState()
 			incremental := i.incrementalFromState(state)
-			ringDesc.AddIngester(i.ID, i.Addr, ringTokens, state, incremental)
+			ringDesc.AddIngester(i.ID, i.Addr, addTokens, state, incremental)
 
-			i.setTokens(ringTokens)
+			i.setTokens(addTokens)
 
 			return ringDesc, true, nil
 		}
@@ -817,7 +817,7 @@ func (i *Lifecycler) autoJoin(ctx context.Context, targetState IngesterState) er
 		ringDesc.AddIngester(i.ID, i.Addr, insertTokens, state, incremental)
 
 		tokens := append(myTokens, newTokens...)
-		sort.Sort(sortableUint32(tokens))
+		sort.Sort(Tokens(tokens))
 
 		if i.cfg.JoinIncrementalTransfer {
 			i.setTransitioningTokens(tokens)
@@ -865,7 +865,7 @@ func (i *Lifecycler) updateConsul(ctx context.Context) error {
 		}
 
 		// Re-sync token states for the current lifecycler if they've changed.
-		ringDesc.SetIngesterTokens(i.ID, i.tokens, i.cfg.NormaliseTokens)
+		ringDesc.SetIngesterTokens(i.ID, i.tokens)
 		return ringDesc, true, nil
 	})
 
