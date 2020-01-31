@@ -308,7 +308,6 @@ func generateRing(t *testing.T, desc string) *namedRing {
 	}
 
 	for id, ing := range r.Ingesters {
-		ing.Tokens = nil
 		r.Ingesters[id] = ing
 	}
 

@@ -84,8 +84,8 @@ func (d *Desc) RemoveIngester(id string) {
 // returning the claimed token.
 // This method assumes that Ring is in the correct state, 'to' ingester has no tokens anywhere.
 // Tokens list must be sorted properly. If all of this is true, everything will be fine.
-func (d *Desc) ClaimTokens(from, to string) []uint32 {
-	var result []uint32
+func (d *Desc) ClaimTokens(from, to string) Tokens {
+	var result Tokens
 
 	// If the ingester we are claiming from is normalising, get its tokens then erase them from the ring.
 	if fromDesc, found := d.Ingesters[from]; found {

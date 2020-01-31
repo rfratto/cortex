@@ -385,7 +385,6 @@ func (d *Distributor) Push(ctx context.Context, req *client.WriteRequest) (*clie
 		}
 
 		validatedSeries, err := d.validateSeries(ts, userID)
-		validatedSeries.Token = key
 
 		// Errors in validation are considered non-fatal, as one series in a request may contain
 		// invalid data but all the remaining series could be perfectly valid.
@@ -407,6 +406,8 @@ func (d *Distributor) Push(ctx context.Context, req *client.WriteRequest) (*clie
 			}
 			samples = append(samples, s)
 		}
+
+		validatedSeries.Token = key
 
 		keys = append(keys, key)
 		validatedTimeseries = append(validatedTimeseries, validatedSeries)
